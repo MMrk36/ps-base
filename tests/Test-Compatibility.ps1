@@ -68,12 +68,13 @@ try {
         schemaVersion = 1
         installedResources = @{
             'ps-core' = @{ version = '1.0.0'; apiVersion = '1.5.0'; installedPath = 'resources/ps-core' }
-            'ps-addon' = @{ version = '1.0.0'; installedPath = 'resources/ps-addon' }
+            'ps-addon' = @{ version = '1.0.0'; installedPath = 'resources/ps-addon'; psCoreApi = @{ minVersion = '1.0.0'; maxVersion = '2.0.0' } }
         }
     }
     $lock | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $lockDirectory 'lock.json')
 
     $coreTwoPlan = @(Resolve-PSBaseInstallPlan -Catalog $catalog -ResourceIds @('ps-core') -Version '2.0.0')
+    if ($coreTwoPlan[0].ApiVersion -ne '2.0.0') { throw 'PS Core API version was not propagated into the resolved plan.' }
     $blocked = $false
     try {
         Test-PSBaseCompatibility -Catalog $catalog -Plan $coreTwoPlan -ServerRoot $server | Out-Null
