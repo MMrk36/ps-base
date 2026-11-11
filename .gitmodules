@@ -1,0 +1,18 @@
+[submodule "pas-core"]
+	path = pas-core
+	url = https://github.com/MMrk36/ps-core
+[submodule "ps-permissions"]
+	path = ps-permissions
+	url = https://github.com/MMrk36/ps-permissions
+[submodule "ps-database"]
+	path = ps-database
+	url = https://github.com/MMrk36/ps-database
+[submodule "ps-characters"]
+	path = ps-characters
+	url = https://github.com/MMrk36/ps-characters
+[submodule "ps-inventory"]
+	path = ps-inventory
+	url = https://github.com/MMrk36/ps-inventory
+[submodule "ps-notifications"]
+	path = ps-notifications
+	url = https://github.com/MMrk36/ps-notifications
