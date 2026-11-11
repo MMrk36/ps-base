@@ -18,11 +18,13 @@ try {
     Set-Content -LiteralPath (Join-Path $installed 'removed.lua') -Value 'remove me' -NoNewline
     Set-Content -LiteralPath (Join-Path $installed 'preserved.lua') -Value 'local config' -NoNewline
     Set-Content -LiteralPath (Join-Path $installed 'user-created.lua') -Value 'user file' -NoNewline
+    New-Item -ItemType Directory -Path (Join-Path $installed 'directory-collision') -Force | Out-Null
 
     Set-Content -LiteralPath (Join-Path $release 'unchanged.lua') -Value 'updated' -NoNewline
     Set-Content -LiteralPath (Join-Path $release 'modified.lua') -Value 'upstream' -NoNewline
     Set-Content -LiteralPath (Join-Path $release 'preserved.lua') -Value 'default config' -NoNewline
     Set-Content -LiteralPath (Join-Path $release 'new.lua') -Value 'new upstream file' -NoNewline
+    Set-Content -LiteralPath (Join-Path $release 'directory-collision') -Value 'upstream file' -NoNewline
 
     $old = [ordered]@{
         schemaVersion = 1
@@ -52,6 +54,7 @@ try {
     if ($byPath['removed.lua'].Action -ne 'Delete') { throw 'Unmodified upstream-deleted file was not scheduled for deletion.' }
     if ($byPath['preserved.lua'].Action -ne 'Keep') { throw 'Preserve policy was not honored.' }
     if ($byPath['new.lua'].Action -ne 'Add') { throw 'New upstream file was not scheduled for addition.' }
+    if ($byPath['directory-collision'].Action -ne 'Keep') { throw 'A local directory occupying a release file path was not protected.' }
     if ($byPath.ContainsKey('user-created.lua')) { throw 'An untracked user file was incorrectly added to the managed update plan.' }
     if ((Get-Content -LiteralPath (Join-Path $installed 'user-created.lua') -Raw) -ne 'user file') { throw 'An untracked user file was changed.' }
 
