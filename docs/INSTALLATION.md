@@ -1,5 +1,17 @@
 # Installation Engine
 
+## Getting started on Windows
+
+1. Install PowerShell 7 or later.
+2. Clone/download the PS Base workspace with its submodules, or obtain the packaged PS Base installer from the official distribution.
+3. Run `Start-PSBase.cmd`.
+4. Select the RedM server root containing `server.cfg` and `resources`.
+5. Add a GitHub fine-grained token with read-only Contents access to the private PS Base and resource repositories. Save it in the interface; Windows DPAPI protects it for the current user.
+6. Select one or more resources, review the dependency plan, then install.
+
+The catalog initially contains no published releases. The resource release-pipeline pull requests must be merged and preview tags published before any resource can be installed. Use **Sync catalog** in the interface after releases are published.
+
+
 The installation engine applies an already verified and extracted resource to a selected RedM server.
 
 ## Installation boundaries
@@ -45,3 +57,18 @@ Installed versions are recorded in:
 The lockfile records resource version, release tag, checksum, repository, relative install path, installation time and backup location. It must never contain authentication tokens or server credentials. PS Base-managed backups also store a sidecar metadata snapshot under `.ps-base/backup-metadata/`, allowing the restore command to recover the matching resource files, file manifest and lockfile entry.
 
 Use `pwsh -File ./PS-Base.ps1 backups -ServerPath <server>` to list restorable backups and `pwsh -File ./PS-Base.ps1 restore -BackupId <id> -ServerPath <server>` to restore one. Restore first creates a safety backup of the current resource. Multi-resource updates are journaled under `.ps-base/transactions/`. If an update fails partway through, PS Base restores previously updated resources in reverse order. If the process is interrupted, use the `transactions` and `recover` commands to inspect and roll back the incomplete operation. Dependency compatibility checks remain a later milestone.
+
+## Private release access
+
+Private GitHub release assets are downloaded through the GitHub Releases API. The token is attached only to requests sent to `api.github.com`; signed asset redirects are followed without forwarding the credential to the asset host. SHA-256 is verified before extraction.
+
+The desktop interface stores the token as a DPAPI-protected value under the current Windows user's Local AppData. The lockfile, catalog, backups and selected server directory never receive the token. For unattended automation, use the `PSBASE_GITHUB_TOKEN` environment variable and keep it in the automation platform's secret store.
+
+## Release and catalog publishing
+
+Each resource repository has a tag-triggered workflow. A release tag must exactly match both `fxmanifest.lua` and `.ps-base-release.json`. The workflow publishes:
+- A ZIP with `fxmanifest.lua` at its root.
+- A SHA-256 sidecar for that ZIP.
+- A `ps-base-release.json` metadata asset.
+
+The PS Base catalog-sync workflow reads these release assets using the `PSBASE_RELEASES_TOKEN` Actions secret, validates metadata and checksums, and commits the updated catalog. It never creates tags or publishes resource releases by itself.
