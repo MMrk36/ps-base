@@ -160,8 +160,21 @@
           "type": "string",
           "pattern": "^[A-Fa-f0-9]{64}$"
         },
+        "apiVersion": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$"
+        },
         "psCoreApi": {
-          "type": "object"
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "minVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$" },
+            "maxVersion": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$" }
+          },
+          "anyOf": [
+            { "required": ["minVersion"] },
+            { "required": ["maxVersion"] }
+          ]
         },
         "dependencies": {
           "type": "array",
@@ -176,7 +189,8 @@
           }
         },
         "minimumArtifact": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^[0-9]+(?:\\.[0-9]+){0,3}$"
         },
         "migrationNotice": {
           "type": "string"
