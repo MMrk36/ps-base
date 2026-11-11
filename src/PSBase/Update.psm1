@@ -20,14 +20,17 @@ function Set-PSBaseUpdateLockEntry {
         $lock = @{ schemaVersion = 1; installedResources = @{} }
     }
 
+    $apiVersion = if ($null -ne $PlanItem.PSObject.Properties['ApiVersion']) { $PlanItem.ApiVersion } else { $null }
+    $psCoreApi = if ($null -ne $PlanItem.PSObject.Properties['PsCoreApi']) { $PlanItem.PsCoreApi } else { $null }
+    $minimumArtifact = if ($null -ne $PlanItem.PSObject.Properties['MinimumArtifact']) { $PlanItem.MinimumArtifact } else { $null }
     $lock.installedResources[$ResourceId] = @{
         version = $PlanItem.Version
         tag = $PlanItem.Tag
         sha256 = $PlanItem.Sha256
         repository = $PlanItem.Repository
-        apiVersion = $PlanItem.ApiVersion
-        psCoreApi = $PlanItem.PsCoreApi
-        minimumArtifact = $PlanItem.MinimumArtifact
+        apiVersion = $apiVersion
+        psCoreApi = $psCoreApi
+        minimumArtifact = $minimumArtifact
         installedPath = $PlanItem.InstalledPath
         installedAt = [DateTime]::UtcNow.ToString('o')
         backupPath = $BackupPath
