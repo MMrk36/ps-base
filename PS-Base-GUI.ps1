@@ -114,9 +114,20 @@ $profileLabel.TextAlign = 'MiddleLeft'
 $profilePanel.Controls.Add($profileLabel)
 
 $script:profileBox = [System.Windows.Forms.ComboBox]::new()
-$script:profileBox.Width = 310
+$script:profileBox.Width = 250
 $script:profileBox.DropDownStyle = 'DropDownList'
 $profilePanel.Controls.Add($script:profileBox)
+
+$versionLabel = [System.Windows.Forms.Label]::new()
+$versionLabel.Text = 'Version'
+$versionLabel.Width = 55
+$versionLabel.TextAlign = 'MiddleLeft'
+$profilePanel.Controls.Add($versionLabel)
+
+$script:versionBox = [System.Windows.Forms.TextBox]::new()
+$script:versionBox.Width = 105
+$script:versionBox.PlaceholderText = 'Latest stable'
+$profilePanel.Controls.Add($script:versionBox)
 
 $artifactLabel = [System.Windows.Forms.Label]::new()
 $artifactLabel.Text = 'Server artifact'
@@ -233,7 +244,9 @@ function Get-CommandArgs {
     if ($artifact) { $args.Add('-ArtifactVersion'); $args.Add($artifact) }
 
     $profile = $script:profileBox.SelectedItem
+    $version = $script:versionBox.Text.Trim()
     if ($null -ne $profile -and $profile.Id) {
+        if ($version) { throw 'A profile already pins exact versions. Clear the Version field or choose a custom selection.' }
         $args.Add('-Profile')
         $args.Add([string]$profile.Id)
     }
@@ -245,6 +258,10 @@ function Get-CommandArgs {
         if ($ids.Count -gt 0) {
             $args.Add('-Resource')
             foreach ($id in $ids) { $args.Add($id) }
+        }
+        if ($version) {
+            $args.Add('-Version')
+            $args.Add($version)
         }
     }
     return $args.ToArray()
@@ -356,8 +373,22 @@ $script:clearToken.add_Click({
 })
 
 $script:profileBox.add_SelectedIndexChanged({
+    $script:versionBox.Enabled = ($script:profileBox.SelectedIndex -eq 0)
     if ($script:profileBox.SelectedIndex -gt 0) {
+        $script:versionBox.Clear()
         foreach ($item in $script:resourceList.Items) { $item.Checked = $false }
+    }
+})
+
+$script:resourceList.add_ItemCheck({
+    param($sender, $eventArgs)
+    $item = $sender.Items[$eventArgs.Index]
+    if ($eventArgs.NewValue -eq [System.Windows.Forms.CheckState]::Checked -and $item.SubItems[3].Text -ne 'True') {
+        $eventArgs.NewValue = [System.Windows.Forms.CheckState]::Unchecked
+        return
+    }
+    if ($eventArgs.NewValue -eq [System.Windows.Forms.CheckState]::Checked -and $script:profileBox.SelectedIndex -gt 0) {
+        $script:profileBox.SelectedIndex = 0
     }
 })
 
