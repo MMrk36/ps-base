@@ -20,9 +20,19 @@ function Set-PSBaseUpdateLockEntry {
         $lock = @{ schemaVersion = 1; installedResources = @{} }
     }
 
-    $apiVersion = if ($null -ne $PlanItem.PSObject.Properties['ApiVersion']) { $PlanItem.ApiVersion } else { $null }
-    $psCoreApi = if ($null -ne $PlanItem.PSObject.Properties['PsCoreApi']) { $PlanItem.PsCoreApi } else { $null }
-    $minimumArtifact = if ($null -ne $PlanItem.PSObject.Properties['MinimumArtifact']) { $PlanItem.MinimumArtifact } else { $null }
+    $apiVersion = $null
+    $psCoreApi = $null
+    $minimumArtifact = $null
+    if ($PlanItem -is [System.Collections.IDictionary]) {
+        if ($PlanItem.Contains('ApiVersion')) { $apiVersion = $PlanItem['ApiVersion'] }
+        if ($PlanItem.Contains('PsCoreApi')) { $psCoreApi = $PlanItem['PsCoreApi'] }
+        if ($PlanItem.Contains('MinimumArtifact')) { $minimumArtifact = $PlanItem['MinimumArtifact'] }
+    }
+    else {
+        if ($null -ne $PlanItem.PSObject.Properties['ApiVersion']) { $apiVersion = $PlanItem.ApiVersion }
+        if ($null -ne $PlanItem.PSObject.Properties['PsCoreApi']) { $psCoreApi = $PlanItem.PsCoreApi }
+        if ($null -ne $PlanItem.PSObject.Properties['MinimumArtifact']) { $minimumArtifact = $PlanItem.MinimumArtifact }
+    }
     $lock.installedResources[$ResourceId] = @{
         version = $PlanItem.Version
         tag = $PlanItem.Tag
