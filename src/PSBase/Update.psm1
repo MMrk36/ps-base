@@ -47,7 +47,8 @@ function Invoke-PSBaseResourceUpdate {
         [Parameter(Mandatory)][string]$StagedPath,
         [Parameter(Mandatory)][string]$ServerRoot,
         [Parameter(Mandatory)][string]$InstalledPath,
-        [object]$FilePolicies
+        [object]$FilePolicies,
+        [object]$Backup
     )
 
     if ($PlanItem.Id -notmatch '^[a-z0-9][a-z0-9_-]*$') {
@@ -93,7 +94,15 @@ function Invoke-PSBaseResourceUpdate {
     $lockChanged = $false
 
     try {
-        $backup = New-PSBaseBackup -ResourceId $PlanItem.Id -ServerRoot $server -InstalledPath $target -Reason 'update'
+        if ($null -ne $Backup) {
+            if ($Backup.ResourceId -ine $PlanItem.Id -or -not (Test-Path -LiteralPath $Backup.BackupPath -PathType Container)) {
+                throw 'The supplied update backup does not match the selected resource.'
+            }
+            $backup = $Backup
+        }
+        else {
+            $backup = New-PSBaseBackup -ResourceId $PlanItem.Id -ServerRoot $server -InstalledPath $target -Reason 'update'
+        }
         $backupPath = $backup.BackupPath
         if (Test-Path -LiteralPath $manifestPath -PathType Leaf) { Copy-Item $manifestPath $manifestBackup }
         if (Test-Path -LiteralPath $lockPath -PathType Leaf) { Copy-Item $lockPath $lockBackup }
