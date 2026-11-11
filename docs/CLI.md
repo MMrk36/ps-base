@@ -20,7 +20,7 @@ pwsh -File ./PS-Base.ps1 plan -Resource ps-core -Version 1.0.0
 
 `plan` resolves the selected resource and its required dependencies in dependency-first order.
 
-The resolver accepts exact dependency pins in the form `resource-id@1.2.3`. An unpinned dependency selects the highest published stable semantic version. Cycles and conflicting version requests stop resolution.
+The resolver accepts exact dependency pins in the form `resource-id@1.2.3`. An unpinned dependency selects the highest published stable semantic version. Preview releases are never selected implicitly; supply `-Version` or use a profile with exact preview pins to install them. Cycles and conflicting version requests stop resolution.
 
 The plan command is read-only. It does not download, extract, install or modify server files.
 
@@ -109,7 +109,7 @@ Maintainers who use the scheduled catalog-sync workflow must add a repository Ac
 
 ## Current limitation
 
-The initial catalog intentionally contains no published releases. All current resources are development-only and cannot be installed. This is expected until each resource has a verified GitHub Release asset and SHA-256 checksum.
+The current catalog intentionally contains no published releases. Resource release-pipeline pull requests are being prepared in the six resource repositories. Once merged, maintainers can publish preview tags and synchronize the catalog. Preview releases require an explicit version; stable releases can be selected by default.
 
 ## Install a published resource
 
