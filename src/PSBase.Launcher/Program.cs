@@ -21,6 +21,11 @@ internal static class Program
         using var mutex = new Mutex(true, mutexName, out bool createdNew);
         if (!createdNew)
         {
+            if (args.Length == 1 && args[0] == "--self-test")
+            {
+                return 1;
+            }
+
             ShowMessage("PS Base is already running.", "PS Base", 0x40);
             return 0;
         }
@@ -63,6 +68,11 @@ internal static class Program
         }
         catch (Exception exception)
         {
+            if (args.Length == 1 && args[0] == "--self-test")
+            {
+                return 1;
+            }
+
             ShowMessage($"PS Base could not start.\n\n{exception.Message}", "PS Base startup error", 0x10);
             return 1;
         }
@@ -209,12 +219,10 @@ internal static class Program
 
         if (process.ExitCode != 0 || !output.Trim().StartsWith("7.", StringComparison.Ordinal))
         {
-            ShowMessage($"Bundled PowerShell runtime test failed.\n{output}\n{error}", "PS Base package test", 0x10);
             return 1;
         }
 
-        ShowMessage($"Package extraction and PowerShell runtime test passed.\nPowerShell {output.Trim()}", "PS Base package test", 0x40);
-        return 0;
+        return string.IsNullOrWhiteSpace(error) ? 0 : 1;
     }
 
     private static void ShowMessage(string message, string title, uint type)
