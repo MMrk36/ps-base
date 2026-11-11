@@ -33,7 +33,7 @@ This roadmap tracks implementation status. A feature is marked complete only whe
 - [x] Individual resource update workflow with SHA-256 file baselines and local-change protection.
 - [x] Journaled multi-resource update transactions with reverse-order rollback and interrupted-operation recovery.
 - [ ] Dependency and compatibility upgrade checks.
-- [ ] Profile catalog with pinned resource versions.
+- [x] Profile catalog with exact resource-version pins and dependency-aware resolution.
 - [x] Safe uninstall with backup, confirmation and preservation of local files.
 
 ## Distribution and platform expansion
