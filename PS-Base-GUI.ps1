@@ -314,6 +314,10 @@ $script:worker.add_RunWorkerCompleted({
     if ($result.Output) { Add-Log $result.Output.TrimEnd() }
     if ($result.Error) { Add-Log $result.Error.TrimEnd() }
     if ($result.ExitCode -eq 0) { Add-Log "$($result.Description) completed." }
+    if ($result.ExitCode -eq 0 -and $result.Description -eq 'Catalog sync') {
+        try { Refresh-Catalog; Add-Log 'Resource catalog refreshed.' }
+        catch { Add-Log "Catalog reload failed: $($_.Exception.Message)" }
+    }
     else {
         Add-Log "$($result.Description) failed with exit code $($result.ExitCode)."
         [System.Windows.Forms.MessageBox]::Show($form, "Command failed. See the log for details.", 'PS Base', 'OK', 'Warning') | Out-Null
@@ -358,13 +362,13 @@ $script:profileBox.add_SelectedIndexChanged({
 })
 
 $script:refreshButton = [System.Windows.Forms.Button]::new()
-$script:refreshButton.Text = 'Refresh catalog'
+$script:refreshButton.Text = 'Sync catalog'
 $script:refreshButton.Width = 112
 $script:refreshButton.Height = 32
 $actions.Controls.Add($script:refreshButton)
 $script:refreshButton.add_Click({
-    try { Refresh-Catalog; Add-Log 'Catalog reloaded from disk.' }
-    catch { [System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'Catalog error', 'OK', 'Error') | Out-Null }
+    try { Start-Command @('-Command', 'sync-catalog') 'Catalog sync' }
+    catch { [System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'Catalog sync', 'OK', 'Error') | Out-Null }
 })
 
 function Add-ActionButton {
