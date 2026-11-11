@@ -1,0 +1,43 @@
+name: Sync resource catalog
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ps-base-catalog-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify release metadata and update catalog
+        shell: pwsh
+        env:
+          PSBASE_GITHUB_TOKEN: ${{ secrets.PSBASE_RELEASES_TOKEN }}
+        run: ./scripts/Update-Catalog.ps1
+
+      - name: Commit catalog changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- catalog/resources.json; then
+            echo "Catalog is already current."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add catalog/resources.json
+          git commit -m "chore(catalog): sync published resource releases"
+          git push origin HEAD:main
