@@ -22,6 +22,7 @@ try {
     Set-Content -LiteralPath (Join-Path $clean 'managed.lua') -Value 'clean baseline' -NoNewline
 
     $partialManifest = Get-PSBaseFileManifest -Root $partial
+    [void]$partialManifest.files.Remove('local.txt')
     $baselineFile = Join-Path $testRoot 'edited-baseline.lua'
     Set-Content -LiteralPath $baselineFile -Value 'original' -NoNewline
     $partialManifest.files['edited.lua'].sha256 = (Get-FileHash $baselineFile -Algorithm SHA256).Hash.ToLowerInvariant()
