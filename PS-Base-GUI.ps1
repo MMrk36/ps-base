@@ -34,12 +34,14 @@ $layout = [System.Windows.Forms.TableLayoutPanel]::new()
 $layout.Dock = 'Fill'
 $layout.Padding = [System.Windows.Forms.Padding]::new(14)
 $layout.ColumnCount = 1
-$layout.RowCount = 6
-foreach ($height in @(44, 38, 38, 34, 100, 32)) {
+$layout.RowCount = 8
+foreach ($height in @(44, 38, 38, 34, 100, 44, 100, 32)) {
     $layout.RowStyles.Add([System.Windows.Forms.RowStyle]::new('Absolute', $height))
 }
 $layout.RowStyles[4].SizeType = 'Percent'
 $layout.RowStyles[4].Height = 100
+$layout.RowStyles[6].SizeType = 'Absolute'
+$layout.RowStyles[6].Height = 100
 $form.Controls.Add($layout)
 
 $heading = [System.Windows.Forms.Label]::new()
@@ -147,7 +149,7 @@ $footer.ColumnCount = 2
 $footer.RowCount = 1
 $footer.ColumnStyles.Add([System.Windows.Forms.ColumnStyle]::new('Percent', 100))
 $footer.ColumnStyles.Add([System.Windows.Forms.ColumnStyle]::new('Absolute', 160))
-$layout.Controls.Add($footer, 0, 5)
+$layout.Controls.Add($footer, 0, 7)
 
 $script:notice = [System.Windows.Forms.Label]::new()
 $script:notice.Dock = 'Fill'
@@ -160,11 +162,11 @@ $script:progress.Dock = 'Fill'
 $footer.Controls.Add($script:progress, 1, 0)
 
 $actions = [System.Windows.Forms.FlowLayoutPanel]::new()
-$actions.Dock = 'Bottom'
-$actions.Height = 48
+$actions.Dock = 'Fill'
+$actions.Height = 44
 $actions.WrapContents = $false
 $actions.Padding = [System.Windows.Forms.Padding]::new(12, 5, 0, 0)
-$form.Controls.Add($actions)
+$layout.Controls.Add($actions, 0, 5)
 
 $script:log = [System.Windows.Forms.TextBox]::new()
 $script:log.Multiline = $true
@@ -172,9 +174,8 @@ $script:log.ReadOnly = $true
 $script:log.ScrollBars = 'Vertical'
 $script:log.WordWrap = $false
 $script:log.Font = [System.Drawing.Font]::new('Consolas', 9)
-$script:log.Size = [System.Drawing.Size]::new(700, 110)
-$script:log.Location = [System.Drawing.Point]::new(14, 570)
-$form.Controls.Add($script:log)
+$script:log.Dock = 'Fill'
+$layout.Controls.Add($script:log, 0, 6)
 
 function Add-Log {
     param([string]$Text)
@@ -357,8 +358,7 @@ $script:refreshButton = [System.Windows.Forms.Button]::new()
 $script:refreshButton.Text = 'Refresh catalog'
 $script:refreshButton.Width = 112
 $script:refreshButton.Height = 32
-$script:refreshButton.Location = [System.Drawing.Point]::new(14, 518)
-$form.Controls.Add($script:refreshButton)
+$actions.Controls.Add($script:refreshButton)
 $script:refreshButton.add_Click({
     try { Refresh-Catalog; Add-Log 'Catalog reloaded from disk.' }
     catch { [System.Windows.Forms.MessageBox]::Show($form, $_.Exception.Message, 'Catalog error', 'OK', 'Error') | Out-Null }
