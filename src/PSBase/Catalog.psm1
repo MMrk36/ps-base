@@ -51,7 +51,8 @@ function Get-PSBaseCatalog {
             if ($null -ne $policies.PSObject.Properties['default'] -and $policies.default -notin @('managed', 'preserve', 'replace')) {
                 throw "Resource '$($resource.id)' has an invalid default file policy."
             }
-            foreach ($rule in @($policies.rules)) {
+            $policyRules = if ($null -ne $policies.PSObject.Properties['rules']) { @($policies.rules) } else { @() }
+            foreach ($rule in $policyRules) {
                 if ([string]::IsNullOrWhiteSpace([string]$rule.pattern) -or $rule.policy -notin @('managed', 'preserve', 'replace')) {
                     throw "Resource '$($resource.id)' has an invalid file policy rule."
                 }
