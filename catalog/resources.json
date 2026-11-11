@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "catalogVersion": "0.1.0",
+  "resources": [
+    {
+      "id": "ps-core",
+      "name": "PS Core",
+      "repository": "MMrk36/ps-core",
+      "submodulePath": "ps-core",
+      "status": "development",
+      "installable": false,
+      "releases": []
+    },
+    {
+      "id": "ps-database",
+      "name": "PS Database",
+      "repository": "MMrk36/ps-database",
+      "submodulePath": "ps-database",
+      "status": "development",
+      "installable": false,
+      "releases": []
+    },
+    {
+      "id": "ps-characters",
+      "name": "PS Characters",
+      "repository": "MMrk36/ps-characters",
+      "submodulePath": "ps-characters",
+      "status": "development",
+      "installable": false,
+      "releases": []
+    },
+    {
+      "id": "ps-inventory",
+      "name": "PS Inventory",
+      "repository": "MMrk36/ps-inventory",
+      "submodulePath": "ps-inventory",
+      "status": "development",
+      "installable": false,
+      "releases": []
+    },
+    {
+      "id": "ps-permissions",
+      "name": "PS Permissions",
+      "repository": "MMrk36/ps-permissions",
+      "submodulePath": "ps-permissions",
+      "status": "development",
+      "installable": false,
+      "releases": []
+    },
+    {
+      "id": "ps-notifications",
+      "name": "PS Notifications",
+      "repository": "MMrk36/ps-notifications",
+      "submodulePath": "ps-notifications",
+      "status": "development",
+      "installable": false,
+      "releases": []
+    }
+  ]
+}
