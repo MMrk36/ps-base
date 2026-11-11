@@ -112,6 +112,8 @@ function Invoke-PSBaseResourceUninstall {
 
     $manifestPath = Join-Path $server (".ps-base/manifests/" + $ResourceId + ".json")
     $manifest = Read-PSBaseFileManifest -Path $manifestPath
+    $manifestBackup = "$manifestPath.$([guid]::NewGuid().ToString('N')).bak"
+    Copy-Item -LiteralPath $manifestPath -Destination $manifestBackup
     $backupDirectory = Join-Path $server '.ps-base/backups'
     New-Item -ItemType Directory -Path $backupDirectory -Force | Out-Null
     $backup = Join-Path $backupDirectory ($ResourceId + '-uninstall-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + [guid]::NewGuid().ToString('N'))
@@ -184,7 +186,11 @@ function Invoke-PSBaseResourceUninstall {
             if (Test-Path -LiteralPath $installed) { Remove-Item -LiteralPath $installed -Recurse -Force -ErrorAction SilentlyContinue }
             Copy-Item -LiteralPath $backup -Destination $installed -Recurse
         }
+        if (Test-Path -LiteralPath $manifestBackup -PathType Leaf) { Move-Item -LiteralPath $manifestBackup -Destination $manifestPath -Force }
         throw "Uninstall of '$ResourceId' failed; the backup was used to restore the resource where possible. $($_.Exception.Message)"
+    }
+    finally {
+        Remove-Item -LiteralPath $manifestBackup -Force -ErrorAction SilentlyContinue
     }
 }
 
