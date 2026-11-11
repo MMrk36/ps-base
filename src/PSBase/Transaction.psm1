@@ -108,6 +108,322 @@ function Invoke-PSBaseUpdateTransaction {
                 continue
             }
 
+            if ([string]$record.backupId -notmatch '^[a-z0-9][a-z0-9_-]*-transaction-[0-9]{8}-[0-9]{6}-[0-9]{3}-[a-f0-9]{32}
+                $record.state = 'rollback-failed'
+                $rollbackFailures.Add("$($record.resourceId): $($_.Exception.Message)")
+            }
+
+            $transaction.updatedAt = [DateTime]::UtcNow.ToString('o')
+            try { Save-PSBaseTransaction -Path $journalPath -Transaction $transaction } catch { }
+        }
+
+        $transaction.status = if ($rollbackFailures.Count -eq 0) { 'rolled-back' } else { 'rollback-failed' }
+        $transaction.updatedAt = [DateTime]::UtcNow.ToString('o')
+        try { Save-PSBaseTransaction -Path $journalPath -Transaction $transaction } catch { }
+
+        if ($rollbackFailures.Count -gt 0) {
+            throw "Update transaction '$transactionId' failed: $originalError. Automatic rollback also had failures: $($rollbackFailures -join '; '). Use the transaction recovery command and retained backups."
+        }
+
+        throw "Update transaction '$transactionId' failed and all previously applied resources were restored: $originalError"
+    }
+}
+
+function Get-PSBaseTransactionList {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$ServerRoot)
+
+    $directory = Join-Path ([System.IO.Path]::GetFullPath($ServerRoot)) '.ps-base/transactions'
+    if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
+        return @()
+    }
+
+    $results = [System.Collections.Generic.List[object]]::new()
+    foreach ($file in Get-ChildItem -LiteralPath $directory -Filter '*.json' -File) {
+        try {
+            $transaction = Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json -AsHashtable
+        }
+        catch {
+            throw "Transaction journal '$($file.Name)' is invalid: $($_.Exception.Message)"
+        }
+
+        if ($transaction.schemaVersion -ne 1 -or
+            $transaction.transactionId -notmatch '^[a-f0-9]{32}$' -or
+            $transaction.transactionId -ne [System.IO.Path]::GetFileNameWithoutExtension($file.Name) -or
+            $transaction.status -notin @('applying', 'rolling-back', 'completed', 'rolled-back', 'rollback-failed')) {
+            throw "Transaction journal '$($file.Name)' has an unsupported structure."
+        }
+
+        $results.Add([pscustomobject]@{
+            TransactionId = $transaction.transactionId
+            Status = $transaction.status
+            StartedAt = $transaction.startedAt
+            UpdatedAt = $transaction.updatedAt
+            JournalPath = $file.FullName
+        })
+    }
+
+    return $results.ToArray()
+}
+
+function Restore-PSBaseUpdateTransaction {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$TransactionId,
+        [Parameter(Mandatory)][string]$ServerRoot
+    )
+
+    if ($TransactionId -notmatch '^[a-f0-9]{32}$') {
+        throw 'Invalid transaction ID.'
+    }
+
+    $server = [System.IO.Path]::GetFullPath($ServerRoot)
+    $journalPath = Join-Path $server (".ps-base/transactions/" + $TransactionId + '.json')
+    if (-not (Test-Path -LiteralPath $journalPath -PathType Leaf)) {
+        throw "Transaction '$TransactionId' was not found."
+    }
+
+    $transaction = Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json -AsHashtable
+    if ($transaction.schemaVersion -ne 1 -or $transaction.transactionId -ne $TransactionId -or
+        $transaction.status -notin @('applying', 'rolling-back', 'rollback-failed')) {
+        throw 'Only incomplete or failed transactions can be recovered.'
+    }
+
+    $failures = [System.Collections.Generic.List[string]]::new()
+    $transaction.status = 'rolling-back'
+    Save-PSBaseTransaction -Path $journalPath -Transaction $transaction
+
+    for ($index = $transaction.resources.Count - 1; $index -ge 0; $index--) {
+        $record = $transaction.resources[$index]
+        if ($record.state -notin @('backup-pending', 'prepared', 'updated', 'rollback-failed') -or
+            [string]::IsNullOrWhiteSpace([string]$record.backupId)) {
+            continue
+        }
+
+        if ([string]$record.backupId -notmatch '^[a-z0-9][a-z0-9_-]*-transaction-[0-9]{8}-[0-9]{6}-[0-9]{3}-[a-f0-9]{32}
+            $record.state = 'rollback-failed'
+            $failures.Add("$($record.resourceId): $($_.Exception.Message)")
+        }
+
+        $transaction.updatedAt = [DateTime]::UtcNow.ToString('o')
+        Save-PSBaseTransaction -Path $journalPath -Transaction $transaction
+    }
+
+    $transaction.status = if ($failures.Count -eq 0) { 'rolled-back' } else { 'rollback-failed' }
+    $transaction.updatedAt = [DateTime]::UtcNow.ToString('o')
+    Save-PSBaseTransaction -Path $journalPath -Transaction $transaction
+
+    if ($failures.Count -gt 0) {
+        throw "Transaction recovery failed for: $($failures -join '; ')"
+    }
+
+    return [pscustomobject]@{
+        TransactionId = $TransactionId
+        Status = $transaction.status
+    }
+}
+
+Export-ModuleMember -Function Invoke-PSBaseUpdateTransaction, Get-PSBaseTransactionList, Restore-PSBaseUpdateTransaction
+) {
+                $rollbackFailures.Add("$($record.resourceId): invalid backup identifier in transaction journal")
+                $record.state = 'rollback-failed'
+                continue
+            }
+
+            $metadataPath = Join-Path $server (".ps-base/backup-metadata/" + $record.backupId + '.json')
+            if ($record.state -eq 'backup-pending' -and -not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
+                $partialBackup = Join-Path $server (".ps-base/backups/" + $record.backupId)
+                Remove-Item -LiteralPath $partialBackup -Recurse -Force -ErrorAction SilentlyContinue
+                $record.state = 'rolled-back'
+                $transaction.updatedAt = [DateTime]::UtcNow.ToString('o')
+                try { Save-PSBaseTransaction -Path $journalPath -Transaction $transaction } catch { }
+                continue
+            }
+
+            try {
+                Restore-PSBaseBackup -BackupId $record.backupId -ServerRoot $server -Confirm:$false | Out-Null
+                $record.state = 'rolled-back'
+            }
+            catch {
+                $record.state = 'rollback-failed'
+                $rollbackFailures.Add("$($record.resourceId): $($_.Exception.Message)")
+            }
+
+            $transaction.updatedAt = [DateTime]::UtcNow.ToString('o')
+            try { Save-PSBaseTransaction -Path $journalPath -Transaction $transaction } catch { }
+        }
+
+        $transaction.status = if ($rollbackFailures.Count -eq 0) { 'rolled-back' } else { 'rollback-failed' }
+        $transaction.updatedAt = [DateTime]::UtcNow.ToString('o')
+        try { Save-PSBaseTransaction -Path $journalPath -Transaction $transaction } catch { }
+
+        if ($rollbackFailures.Count -gt 0) {
+            throw "Update transaction '$transactionId' failed: $originalError. Automatic rollback also had failures: $($rollbackFailures -join '; '). Use the transaction recovery command and retained backups."
+        }
+
+        throw "Update transaction '$transactionId' failed and all previously applied resources were restored: $originalError"
+    }
+}
+
+function Get-PSBaseTransactionList {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string]$ServerRoot)
+
+    $directory = Join-Path ([System.IO.Path]::GetFullPath($ServerRoot)) '.ps-base/transactions'
+    if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
+        return @()
+    }
+
+    $results = [System.Collections.Generic.List[object]]::new()
+    foreach ($file in Get-ChildItem -LiteralPath $directory -Filter '*.json' -File) {
+        try {
+            $transaction = Get-Content -LiteralPath $file.FullName -Raw | ConvertFrom-Json -AsHashtable
+        }
+        catch {
+            throw "Transaction journal '$($file.Name)' is invalid: $($_.Exception.Message)"
+        }
+
+        if ($transaction.schemaVersion -ne 1 -or
+            $transaction.transactionId -notmatch '^[a-f0-9]{32}$' -or
+            $transaction.transactionId -ne [System.IO.Path]::GetFileNameWithoutExtension($file.Name) -or
+            $transaction.status -notin @('applying', 'rolling-back', 'completed', 'rolled-back', 'rollback-failed')) {
+            throw "Transaction journal '$($file.Name)' has an unsupported structure."
+        }
+
+        $results.Add([pscustomobject]@{
+            TransactionId = $transaction.transactionId
+            Status = $transaction.status
+            StartedAt = $transaction.startedAt
+            UpdatedAt = $transaction.updatedAt
+            JournalPath = $file.FullName
+        })
+    }
+
+    return $results.ToArray()
+}
+
+function Restore-PSBaseUpdateTransaction {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string]$TransactionId,
+        [Parameter(Mandatory)][string]$ServerRoot
+    )
+
+    if ($TransactionId -notmatch '^[a-f0-9]{32}$') {
+        throw 'Invalid transaction ID.'
+    }
+
+    $server = [System.IO.Path]::GetFullPath($ServerRoot)
+    $journalPath = Join-Path $server (".ps-base/transactions/" + $TransactionId + '.json')
+    if (-not (Test-Path -LiteralPath $journalPath -PathType Leaf)) {
+        throw "Transaction '$TransactionId' was not found."
+    }
+
+    $transaction = Get-Content -LiteralPath $journalPath -Raw | ConvertFrom-Json -AsHashtable
+    if ($transaction.schemaVersion -ne 1 -or $transaction.transactionId -ne $TransactionId -or
+        $transaction.status -notin @('applying', 'rolling-back', 'rollback-failed')) {
+        throw 'Only incomplete or failed transactions can be recovered.'
+    }
+
+    $failures = [System.Collections.Generic.List[string]]::new()
+    $transaction.status = 'rolling-back'
+    Save-PSBaseTransaction -Path $journalPath -Transaction $transaction
+
+    for ($index = $transaction.resources.Count - 1; $index -ge 0; $index--) {
+        $record = $transaction.resources[$index]
+        if ($record.state -notin @('backup-pending', 'prepared', 'updated', 'rollback-failed') -or
+            [string]::IsNullOrWhiteSpace([string]$record.backupId)) {
+            continue
+        }
+
+        try {
+            Restore-PSBaseBackup -BackupId $record.backupId -ServerRoot $server -Confirm:$false | Out-Null
+            $record.state = 'rolled-back'
+        }
+        catch {
+            $record.state = 'rollback-failed'
+            $failures.Add("$($record.resourceId): $($_.Exception.Message)")
+        }
+
+        $transaction.updatedAt = [DateTime]::UtcNow.ToString('o')
+        Save-PSBaseTransaction -Path $journalPath -Transaction $transaction
+    }
+
+    $transaction.status = if ($failures.Count -eq 0) { 'rolled-back' } else { 'rollback-failed' }
+    $transaction.updatedAt = [DateTime]::UtcNow.ToString('o')
+    Save-PSBaseTransaction -Path $journalPath -Transaction $transaction
+
+    if ($failures.Count -gt 0) {
+        throw "Transaction recovery failed for: $($failures -join '; ')"
+    }
+
+    return [pscustomobject]@{
+        TransactionId = $TransactionId
+        Status = $transaction.status
+    }
+}
+
+Export-ModuleMember -Function Invoke-PSBaseUpdateTransaction, Get-PSBaseTransactionList, Restore-PSBaseUpdateTransaction
+) {
+            $failures.Add("$($record.resourceId): invalid backup identifier in transaction journal")
+            $record.state = 'rollback-failed'
+            continue
+        }
+
+        $metadataPath = Join-Path $server (".ps-base/backup-metadata/" + $record.backupId + '.json')
+        if ($record.state -eq 'backup-pending' -and -not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
+            $partialBackup = Join-Path $server (".ps-base/backups/" + $record.backupId)
+            Remove-Item -LiteralPath $partialBackup -Recurse -Force -ErrorAction SilentlyContinue
+            $record.state = 'rolled-back'
+            $transaction.updatedAt = [DateTime]::UtcNow.ToString('o')
+            Save-PSBaseTransaction -Path $journalPath -Transaction $transaction
+            continue
+        }
+
+        try {
+            Restore-PSBaseBackup -BackupId $record.backupId -ServerRoot $server -Confirm:$false | Out-Null
+            $record.state = 'rolled-back'
+        }
+        catch {
+            $record.state = 'rollback-failed'
+            $failures.Add("$($record.resourceId): $($_.Exception.Message)")
+        }
+
+        $transaction.updatedAt = [DateTime]::UtcNow.ToString('o')
+        Save-PSBaseTransaction -Path $journalPath -Transaction $transaction
+    }
+
+    $transaction.status = if ($failures.Count -eq 0) { 'rolled-back' } else { 'rollback-failed' }
+    $transaction.updatedAt = [DateTime]::UtcNow.ToString('o')
+    Save-PSBaseTransaction -Path $journalPath -Transaction $transaction
+
+    if ($failures.Count -gt 0) {
+        throw "Transaction recovery failed for: $($failures -join '; ')"
+    }
+
+    return [pscustomobject]@{
+        TransactionId = $TransactionId
+        Status = $transaction.status
+    }
+}
+
+Export-ModuleMember -Function Invoke-PSBaseUpdateTransaction, Get-PSBaseTransactionList, Restore-PSBaseUpdateTransaction
+) {
+                $rollbackFailures.Add("$($record.resourceId): invalid backup identifier in transaction journal")
+                $record.state = 'rollback-failed'
+                continue
+            }
+
+            $metadataPath = Join-Path $server (".ps-base/backup-metadata/" + $record.backupId + '.json')
+            if ($record.state -eq 'backup-pending' -and -not (Test-Path -LiteralPath $metadataPath -PathType Leaf)) {
+                $partialBackup = Join-Path $server (".ps-base/backups/" + $record.backupId)
+                Remove-Item -LiteralPath $partialBackup -Recurse -Force -ErrorAction SilentlyContinue
+                $record.state = 'rolled-back'
+                $transaction.updatedAt = [DateTime]::UtcNow.ToString('o')
+                try { Save-PSBaseTransaction -Path $journalPath -Transaction $transaction } catch { }
+                continue
+            }
+
             try {
                 Restore-PSBaseBackup -BackupId $record.backupId -ServerRoot $server -Confirm:$false | Out-Null
                 $record.state = 'rolled-back'
