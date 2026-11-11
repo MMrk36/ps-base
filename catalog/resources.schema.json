@@ -147,6 +147,9 @@
           "type": "string",
           "minLength": 1
         },
+        "status": {
+          "enum": ["preview", "stable"]
+        },
         "asset": {
           "type": "string",
           "minLength": 1
