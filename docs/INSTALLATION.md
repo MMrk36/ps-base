@@ -42,6 +42,6 @@ Installed versions are recorded in:
 
     <server-root>/.ps-base/lock.json
 
-The lockfile records resource version, release tag, checksum, repository, relative install path, installation time and backup location. It must never contain authentication tokens or server credentials.
+The lockfile records resource version, release tag, checksum, repository, relative install path, installation time and backup location. It must never contain authentication tokens or server credentials. PS Base-managed backups also store a sidecar metadata snapshot under `.ps-base/backup-metadata/`, allowing the restore command to recover the matching resource files, file manifest and lockfile entry.
 
-The engine replaces one resource at a time. Multi-resource transaction orchestration, backup browsing and user-facing rollback commands are later milestones.
+Use `pwsh -File ./PS-Base.ps1 backups -ServerPath <server>` to list restorable backups and `pwsh -File ./PS-Base.ps1 restore -BackupId <id> -ServerPath <server>` to restore one. Restore first creates a safety backup of the current resource. Multi-resource transaction orchestration and dependency compatibility checks remain later milestones.
