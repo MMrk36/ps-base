@@ -65,8 +65,13 @@ function Invoke-PSBaseUpdateTransaction {
                 continue
             }
 
-            $backup = New-PSBaseBackup -ResourceId $prepared.Item.Id -ServerRoot $server -InstalledPath $prepared.TargetPath -Reason 'transaction'
-            $record.backupId = $backup.BackupId
+            $backupId = $prepared.Item.Id + '-transaction-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + [guid]::NewGuid().ToString('N')
+            $record.backupId = $backupId
+            $record.state = 'backup-pending'
+            $transaction.updatedAt = [DateTime]::UtcNow.ToString('o')
+            Save-PSBaseTransaction -Path $journalPath -Transaction $transaction
+
+            $backup = New-PSBaseBackup -ResourceId $prepared.Item.Id -ServerRoot $server -InstalledPath $prepared.TargetPath -Reason 'transaction' -BackupId $backupId
             $record.state = 'prepared'
             $transaction.updatedAt = [DateTime]::UtcNow.ToString('o')
             Save-PSBaseTransaction -Path $journalPath -Transaction $transaction
@@ -99,7 +104,7 @@ function Invoke-PSBaseUpdateTransaction {
         $rollbackFailures = [System.Collections.Generic.List[string]]::new()
         for ($index = $PreparedItems.Count - 1; $index -ge 0; $index--) {
             $record = $transaction.resources[$index]
-            if ($record.state -notin @('prepared', 'updated', 'rollback-failed') -or [string]::IsNullOrWhiteSpace([string]$record.backupId)) {
+            if ($record.state -notin @('backup-pending', 'prepared', 'updated', 'rollback-failed') -or [string]::IsNullOrWhiteSpace([string]$record.backupId)) {
                 continue
             }
 
@@ -194,7 +199,7 @@ function Restore-PSBaseUpdateTransaction {
 
     for ($index = $transaction.resources.Count - 1; $index -ge 0; $index--) {
         $record = $transaction.resources[$index]
-        if ($record.state -notin @('prepared', 'updated', 'rollback-failed') -or
+        if ($record.state -notin @('backup-pending', 'prepared', 'updated', 'rollback-failed') -or
             [string]::IsNullOrWhiteSpace([string]$record.backupId)) {
             continue
         }
