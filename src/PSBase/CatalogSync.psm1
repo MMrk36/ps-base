@@ -149,6 +149,37 @@ function ConvertTo-PSBaseReleaseEntry {
     return $entry
 }
 
+function Preserve-PSBaseDependencyPins {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$ReleaseEntry,
+        [Parameter(Mandatory)]$ExistingRelease
+    )
+
+    $newDependencies = @($ReleaseEntry.dependencies)
+    $existingDependencies = @($ExistingRelease.dependencies)
+    if ($newDependencies.Count -ne $existingDependencies.Count) {
+        return $ReleaseEntry
+    }
+
+    $pinnedDependencies = [System.Collections.Generic.List[string]]::new()
+    for ($index = 0; $index -lt $newDependencies.Count; $index++) {
+        $newParts = ([string]$newDependencies[$index]) -split '@', 2
+        $existingParts = ([string]$existingDependencies[$index]) -split '@', 2
+
+        if ($newParts.Count -eq 2 -or
+            $existingParts.Count -ne 2 -or
+            $newParts[0] -ine $existingParts[0]) {
+            return $ReleaseEntry
+        }
+
+        $pinnedDependencies.Add([string]$existingDependencies[$index])
+    }
+
+    $ReleaseEntry.dependencies = $pinnedDependencies.ToArray()
+    return $ReleaseEntry
+}
+
 function Update-PSBaseCatalogFromGitHub {
     [CmdletBinding(SupportsShouldProcess)]
     param(
@@ -207,6 +238,10 @@ function Update-PSBaseCatalogFromGitHub {
             }
 
             $entry = ConvertTo-PSBaseReleaseEntry -GitHubRelease $release -Metadata $metadata -ChecksumText $checksumText
+            $existingEntry = @($resource.releases | Where-Object { $_.version -eq $entry.version }) | Select-Object -First 1
+            if ($null -ne $existingEntry) {
+                $entry = Preserve-PSBaseDependencyPins -ReleaseEntry $entry -ExistingRelease $existingEntry
+            }
             $entries.Add($entry)
             if ($null -eq $latestMetadata) { $latestMetadata = $metadata }
         }
@@ -251,4 +286,4 @@ function Update-PSBaseCatalogFromGitHub {
     }
 }
 
-Export-ModuleMember -Function ConvertTo-PSBaseReleaseEntry, Update-PSBaseCatalogFromGitHub
+Export-ModuleMember -Function ConvertTo-PSBaseReleaseEntry, Preserve-PSBaseDependencyPins, Update-PSBaseCatalogFromGitHub
