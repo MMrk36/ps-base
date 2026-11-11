@@ -17,7 +17,9 @@ param(
 
     [string]$TransactionId,
 
-    [string]$Profile
+    [string]$Profile,
+
+    [string]$ArtifactVersion
 )
 
 Set-StrictMode -Version Latest
@@ -33,6 +35,7 @@ $fileManifestModule = Join-Path $root 'src/PSBase/FileManifest.psm1'
 $resourceManagementModule = Join-Path $root 'src/PSBase/ResourceManagement.psm1'
 $backupManagerModule = Join-Path $root 'src/PSBase/BackupManager.psm1'
 $transactionModule = Join-Path $root 'src/PSBase/Transaction.psm1'
+$compatibilityModule = Join-Path $root 'src/PSBase/Compatibility.psm1'
 
 Import-Module $resolverModule -Force
 Import-Module $catalogModule -Force
@@ -42,6 +45,7 @@ Import-Module $updateModule -Force
 Import-Module $resourceManagementModule -Force
 Import-Module $backupManagerModule -Force
 Import-Module $transactionModule -Force
+Import-Module $compatibilityModule -Force
 Import-Module $fileManifestModule -Force
 
 try {
@@ -75,6 +79,8 @@ try {
             else {
                 Resolve-PSBaseInstallPlan -Catalog $catalog -ResourceIds $Resource -Version $Version
             }
+            $compatibility = Test-PSBaseCompatibility -Catalog $catalog -Plan $plan -ServerRoot $ServerPath -ArtifactVersion $ArtifactVersion
+            foreach ($warning in $compatibility.Warnings) { Write-Warning $warning }
             Write-Host 'Resolved installation plan:' -ForegroundColor Cyan
             $plan | Format-Table Id, Version, Name -AutoSize
             Write-Host 'No files have been downloaded or changed.' -ForegroundColor Yellow
@@ -109,6 +115,8 @@ try {
             }
 
             $plan = if ($Profile) { @(Resolve-PSBaseProfilePlan -Catalog $catalog -ProfileId $Profile) } else { @(Resolve-PSBaseInstallPlan -Catalog $catalog -ResourceIds $Resource -Version $Version) }
+            $compatibility = Test-PSBaseCompatibility -Catalog $catalog -Plan $plan -ServerRoot $serverRoot -ArtifactVersion $ArtifactVersion
+            foreach ($warning in $compatibility.Warnings) { Write-Warning $warning }
             Write-Host 'Installation plan:' -ForegroundColor Cyan
             $plan | Format-Table Id, Version, Name -AutoSize
 
@@ -169,6 +177,8 @@ try {
             $resourcesRoot = if ([string]::IsNullOrWhiteSpace($ResourcesPath)) { Join-Path $serverRoot 'resources' } else { [System.IO.Path]::GetFullPath($ResourcesPath) }
             if (-not (Test-Path -LiteralPath $resourcesRoot -PathType Container)) { throw "Resources directory does not exist: $resourcesRoot" }
             $plan = if ($Profile) { @(Resolve-PSBaseProfilePlan -Catalog $catalog -ProfileId $Profile) } else { @(Resolve-PSBaseInstallPlan -Catalog $catalog -ResourceIds $Resource -Version $Version) }
+            $compatibility = Test-PSBaseCompatibility -Catalog $catalog -Plan $plan -ServerRoot $serverRoot -ArtifactVersion $ArtifactVersion
+            foreach ($warning in $compatibility.Warnings) { Write-Warning $warning }
             $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("ps-base-update-" + [guid]::NewGuid().ToString('N'))
             $prepared = [System.Collections.Generic.List[object]]::new()
 
