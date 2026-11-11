@@ -79,9 +79,33 @@ pwsh -File ./PS-Base.ps1 update -Profile standard -ServerPath "D:/RedM/server" -
 
 Profiles are defined in the catalog and pin an exact version for every top-level resource. Dependencies are resolved dependency-first; a profile pin is also used when a dependency does not specify its own version. An explicit dependency version that conflicts with a profile pin is rejected. Profiles cannot be combined with `-Version`. Compatibility metadata is checked before installation or updates. If a release declares a minimum server artifact, supply `-ArtifactVersion` so PS Base can verify the target server.
 
-### Interactive entry point
+### Desktop installer
 
-Running the script without a command opens the initial menu. The menu currently exposes catalog listing and the planning command guidance. A full interactive installation flow will be added after the release and installation engine is implemented.
+On Windows, double-click `Start-PSBase.cmd` or run:
+
+```powershell
+pwsh -NoProfile -STA -File ./PS-Base-GUI.ps1
+```
+
+Running `PS-Base.ps1` without a command also launches the desktop interface. It provides resource selection, installation profiles, server-folder selection, compatibility input, plan/install/update actions, status, backups, restore, uninstall and transaction recovery. Long-running operations execute outside the UI thread; output and errors are shown in the activity log.
+
+The interface currently uses the same tested CLI and PowerShell modules as automation. It does not implement a separate installer engine.
+
+### Synchronize published releases
+
+```powershell
+pwsh -File ./PS-Base.ps1 sync-catalog
+```
+
+Catalog synchronization reads versioned GitHub Releases from each private resource repository, checks the tag against the release metadata, requires the ZIP/checksum/metadata assets, validates the SHA-256 sidecar and updates the catalog atomically. It never reads a moving branch or creates release versions.
+
+### Private GitHub access
+
+The six resource repositories are private. Create a fine-grained GitHub token with read-only Contents access to the PS Base repository and the resource repositories you need to install. Metadata read access is included by GitHub. In the desktop interface, paste it into the masked GitHub token field and choose **Save securely**. Windows DPAPI protects the token for the current Windows user under `%LOCALAPPDATA%\PedroScripts\PSBase`; it is not stored in the server directory, repository, lockfile or logs.
+
+For automation, set `PSBASE_GITHUB_TOKEN` in the process environment. Environment credentials take precedence over the saved Windows credential. Do not put tokens in command-line arguments, scripts, catalog files or source control.
+
+Maintainers who use the scheduled catalog-sync workflow must add a repository Actions secret named `PSBASE_RELEASES_TOKEN`. It needs read-only access to Contents in all six private resource repositories. The workflow only commits changes to `catalog/resources.json` in PS Base.
 
 ## Current limitation
 
