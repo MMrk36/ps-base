@@ -1,5 +1,6 @@
 Set-StrictMode -Version Latest
 Import-Module (Join-Path $PSScriptRoot 'FileManifest.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'BackupManager.psm1') -Force
 
 function Test-PSBasePathWithin {
     param([string]$Parent, [string]$Child)
@@ -97,7 +98,7 @@ function Install-PSBaseResource {
     $lockPath = Join-Path $ServerRoot '.ps-base/lock.json'
     $stateDirectory = Join-Path $ServerRoot '.ps-base'
     $backupDirectory = Join-Path $stateDirectory 'backups'
-    $backupPath = Join-Path $backupDirectory ($PlanItem.Id + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + [guid]::NewGuid().ToString('N'))
+    $backupPath = $null
     $previousPath = "$targetPath.psbase-old-$([guid]::NewGuid().ToString('N'))"
     $hadPrevious = Test-Path -LiteralPath $targetPath
     $manifestPath = Join-Path $stateDirectory ("manifests/" + $PlanItem.Id + ".json")
@@ -141,8 +142,8 @@ function Install-PSBaseResource {
                 Copy-Item -LiteralPath $oldConfigPath -Destination $newConfigPath -Recurse -Force
             }
 
-            New-Item -ItemType Directory -Path $backupDirectory -Force | Out-Null
-            Copy-Item -LiteralPath $targetPath -Destination $backupPath -Recurse
+            $backup = New-PSBaseBackup -ResourceId $PlanItem.Id -ServerRoot $ServerRoot -InstalledPath $targetPath -Reason 'install-replace'
+            $backupPath = $backup.BackupPath
             Move-Item -LiteralPath $targetPath -Destination $previousPath
             $movedOld = $true
         }
