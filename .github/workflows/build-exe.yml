@@ -18,10 +18,19 @@ jobs:
         with:
           submodules: false
 
+      - name: Read pinned toolchain
+        id: toolchain
+        shell: pwsh
+        run: |
+          $toolchain = Get-Content ./build/toolchain.json -Raw | ConvertFrom-Json
+          "powershell=$($toolchain.powershell)" >> $env:GITHUB_OUTPUT
+          "dotnet=$($toolchain.dotnetSdk)" >> $env:GITHUB_OUTPUT
+          "runtime=$($toolchain.runtime)" >> $env:GITHUB_OUTPUT
+
       - name: Set up .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: ${{ steps.toolchain.outputs.dotnet }}
 
       - name: Resolve release version
         shell: pwsh
@@ -39,24 +48,42 @@ jobs:
 
           "APP_VERSION=$version" >> $env:GITHUB_ENV
 
-      - name: Download portable PowerShell
+      - name: Download and verify portable PowerShell
         shell: pwsh
         run: |
+          $version = "${{ steps.toolchain.outputs.powershell }}"
           $headers = @{ 'User-Agent' = 'PedroScripts-PSBase-Release' }
-          $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/PowerShell/PowerShell/releases/latest' -Headers $headers
-          $asset = $release.assets | Where-Object { $_.name -match '^PowerShell-\d+\.\d+\.\d+-win-x64\.zip$' } | Select-Object -First 1
-          if (-not $asset) {
-            throw 'The latest stable PowerShell release does not contain the expected win-x64 portable ZIP.'
+          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/PowerShell/PowerShell/releases/tags/v$version" -Headers $headers
+          if ($release.prerelease -or $release.draft) {
+            throw "Pinned PowerShell version v$version is not a stable published release."
+          }
+
+          $asset = $release.assets | Where-Object { $_.name -eq "PowerShell-$version-win-x64.zip" } | Select-Object -First 1
+          $hashAsset = $release.assets | Where-Object { $_.name -eq 'hashes.sha256' } | Select-Object -First 1
+          if (-not $asset -or -not $hashAsset) {
+            throw "PowerShell v$version is missing its Windows x64 ZIP or checksum file."
           }
 
           New-Item -ItemType Directory -Path ./build/runtime -Force | Out-Null
           Invoke-WebRequest -Uri $asset.browser_download_url -Headers $headers -OutFile ./build/powershell.zip
+          Invoke-WebRequest -Uri $hashAsset.browser_download_url -Headers $headers -OutFile ./build/powershell-hashes.sha256
+
+          $hashLine = Get-Content ./build/powershell-hashes.sha256 | Where-Object { $_ -match [regex]::Escape($asset.name) } | Select-Object -First 1
+          if (-not $hashLine) {
+            throw "No published SHA-256 checksum was found for $($asset.name)."
+          }
+          $expectedHash = ($hashLine.Trim() -split '\s+')[0]
+          $actualHash = (Get-FileHash ./build/powershell.zip -Algorithm SHA256).Hash
+          if ($actualHash -ne $expectedHash) {
+            throw 'The downloaded PowerShell runtime checksum does not match the official release checksum.'
+          }
+
           Expand-Archive -LiteralPath ./build/powershell.zip -DestinationPath ./build/runtime -Force
           if (-not (Test-Path ./build/runtime/pwsh.exe)) {
             throw 'The downloaded PowerShell archive did not contain pwsh.exe at its root.'
           }
 
-          "POWERSHELL_VERSION=$($release.tag_name)" >> $env:GITHUB_ENV
+          "POWERSHELL_VERSION=v$version" >> $env:GITHUB_ENV
 
       - name: Prepare embedded application payload
         shell: pwsh
@@ -74,15 +101,16 @@ jobs:
           @(
             'PS Base bundles the portable PowerShell runtime published by Microsoft.'
             "PowerShell release: $env:POWERSHELL_VERSION"
-            'The PowerShell license and third-party notices are included from the official runtime archive.'
+            'PowerShell license and third-party notices are included from the official runtime archive when present.'
+            '.NET is included as a self-contained application runtime. License: https://github.com/dotnet/runtime/blob/main/LICENSE.TXT'
+            'PS Base source and resource licensing remains subject to the notices and terms in their respective repositories.'
             ''
           ) | Set-Content -LiteralPath $notices -Encoding utf8
 
-          foreach ($noticeName in @('LICENSE.txt', 'ThirdPartyNotices.txt')) {
-            $source = Join-Path (Join-Path $PWD 'build/runtime') $noticeName
-            if (Test-Path -LiteralPath $source) {
-              Copy-Item -LiteralPath $source -Destination $payload
-            }
+          Get-ChildItem ./build/runtime -File -Recurse | Where-Object {
+            $_.Name -match '^(LICENSE|ThirdPartyNotices)(\..*)?$'
+          } | ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $payload $_.Name) -Force
           }
 
           Compress-Archive -Path (Join-Path $payload '*') -DestinationPath ./build/psbase-payload.zip -CompressionLevel Optimal
@@ -90,7 +118,7 @@ jobs:
       - name: Publish single-file launcher
         shell: pwsh
         run: |
-          dotnet publish ./src/PSBase.Launcher/PSBase.Launcher.csproj --configuration Release --runtime win-x64 --self-contained true --output ./build/publish "-p:Version=$env:APP_VERSION" "-p:InformationalVersion=$env:APP_VERSION" "-p:PayloadPath=$PWD/build/psbase-payload.zip"
+          dotnet publish ./src/PSBase.Launcher/PSBase.Launcher.csproj --configuration Release --runtime ${{ steps.toolchain.outputs.runtime }} --self-contained true --output ./build/publish "-p:Version=$env:APP_VERSION" "-p:InformationalVersion=$env:APP_VERSION" "-p:PayloadPath=$PWD/build/psbase-payload.zip"
 
           $exe = Join-Path $PWD 'build/publish/PSBase.Launcher.exe'
           if (-not (Test-Path -LiteralPath $exe)) {
@@ -112,7 +140,16 @@ jobs:
           $hash = (Get-FileHash ./build/PS-Base.exe -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash  PS-Base.exe" | Set-Content ./build/PS-Base.exe.sha256 -Encoding ascii
 
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PS-Base-Windows-x64
+          path: |
+            build/PS-Base.exe
+            build/PS-Base.exe.sha256
+
       - name: Publish GitHub release asset
+        if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
           name: PS Base ${{ github.ref_name }}
