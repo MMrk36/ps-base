@@ -39,7 +39,13 @@ function Get-PSBaseFileManifest {
                 $policy = [string]$FilePolicies.default
             }
 
-            $rules = if ($null -ne $FilePolicies.PSObject -and $null -ne $FilePolicies.PSObject.Properties['rules']) { @($FilePolicies.rules) } else { @() }
+            $rules = @()
+            if ($FilePolicies -is [System.Collections.IDictionary]) {
+                if ($FilePolicies.Contains('rules')) { $rules = @($FilePolicies['rules']) }
+            }
+            elseif ($null -ne $FilePolicies.PSObject.Properties['rules']) {
+                $rules = @($FilePolicies.rules)
+            }
             foreach ($rule in $rules) {
                 if ([string]::IsNullOrWhiteSpace([string]$rule.pattern) -or
                     $rule.policy -notin @('managed', 'preserve', 'replace')) {
