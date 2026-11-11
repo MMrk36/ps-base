@@ -23,7 +23,7 @@ This roadmap tracks implementation status. A feature is marked complete only whe
 - [x] Explicit configuration preservation paths.
 - [x] Per-resource backup before replacement.
 - [x] Installed resource lockfile.
-- [ ] Register verified release artifacts for each resource.
+- [ ] Publish and register the first verified preview release artifacts for each resource.
 - [ ] Test installation against a real RedM server directory.
 
 ## Resource management
@@ -38,15 +38,15 @@ This roadmap tracks implementation status. A feature is marked complete only whe
 
 ## Distribution and platform expansion
 
-- [ ] Release metadata refresh from GitHub.
-- [ ] Private repository authentication.
+- [x] Authenticated release metadata refresh from private GitHub repositories with checksum sidecar validation.
+- [x] Private GitHub release downloads with current-user DPAPI credential storage and environment-token support.
 - [ ] Linux support.
 - [ ] Third-party resource sources.
-- [ ] Optional graphical interface.
+- [x] Windows desktop interface for catalog browsing, planning, install/update, status, backups, restore, uninstall and recovery.
 
 ## Release readiness
 
 - [ ] Security review of filesystem and archive handling.
 - [ ] End-to-end installation and update tests.
-- [ ] User documentation and troubleshooting guide.
+- [x] User documentation for installation, authentication, catalog synchronization and resource release publishing.
 - [ ] Versioned PS Base releases and changelog.
