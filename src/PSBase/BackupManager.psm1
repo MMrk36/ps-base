@@ -227,6 +227,10 @@ function Restore-PSBaseBackup {
         return $null
     }
 
+    if ((Test-Path -LiteralPath $target) -and -not (Test-Path -LiteralPath $target -PathType Container)) {
+        throw 'The current resource target exists but is not a directory.'
+    }
+
     $currentBackup = $null
     if (Test-Path -LiteralPath $target -PathType Container) {
         $currentBackup = New-PSBaseBackup -ResourceId $metadata.resourceId -ServerRoot $server -InstalledPath $target -Reason 'pre-restore'
