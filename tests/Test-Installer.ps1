@@ -35,7 +35,7 @@ try {
     }
 
     $upstreamConfigHash = (Get-FileHash -LiteralPath (Join-Path $stagedPath 'config.lua') -Algorithm SHA256).Hash.ToLowerInvariant()
-    $result = Install-PSBaseResource -PlanItem $planItem -StagedPath $stagedPath -ServerRoot $serverRoot -ResourcesPath $resourcesPath -PreservePaths @('config.lua') -Confirm:$false
+    $result = Install-PSBaseResource -PlanItem $planItem -StagedPath $stagedPath -ServerRoot $serverRoot -ResourcesPath $resourcesPath -PreservePaths @('config.lua') -ReplaceExisting -Confirm:$false
 
     if ((Get-Content -LiteralPath (Join-Path $targetPath 'config.lua') -Raw).Trim() -ne 'user setting') {
         throw 'Existing user configuration was not preserved.'
