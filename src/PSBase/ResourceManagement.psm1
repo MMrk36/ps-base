@@ -112,10 +112,7 @@ function Invoke-PSBaseResourceUninstall {
 
     $manifestPath = Join-Path $server (".ps-base/manifests/" + $ResourceId + ".json")
     $manifest = Read-PSBaseFileManifest -Path $manifestPath
-    $manifestBackup = "$manifestPath.$([guid]::NewGuid().ToString('N')).bak"
-    Copy-Item -LiteralPath $manifestPath -Destination $manifestBackup
     $backupDirectory = Join-Path $server '.ps-base/backups'
-    New-Item -ItemType Directory -Path $backupDirectory -Force | Out-Null
     $backup = Join-Path $backupDirectory ($ResourceId + '-uninstall-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + [guid]::NewGuid().ToString('N'))
 
     $removable = [System.Collections.Generic.List[string]]::new()
@@ -136,6 +133,9 @@ function Invoke-PSBaseResourceUninstall {
         return $null
     }
 
+    New-Item -ItemType Directory -Path $backupDirectory -Force | Out-Null
+    $manifestBackup = "$manifestPath.$([guid]::NewGuid().ToString('N')).bak"
+    Copy-Item -LiteralPath $manifestPath -Destination $manifestBackup
     Copy-Item -LiteralPath $installed -Destination $backup -Recurse
     try {
         foreach ($path in $removable) {
