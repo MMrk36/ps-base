@@ -58,9 +58,18 @@ try {
         throw 'Installed resource version was not recorded in the lockfile.'
     }
 
+    $manifestPath = Join-Path $serverRoot '.ps-base/manifests/ps-test-resource.json'
+    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+        throw 'The installed release file manifest was not recorded.'
+    }
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    if ($manifest.files.'config.lua'.sha256 -ne (Get-FileHash -LiteralPath (Join-Path $stagedPath 'config.lua') -Algorithm SHA256).Hash.ToLowerInvariant()) {
+        throw 'The manifest did not retain the original upstream configuration baseline.'
+    }
+
     Write-Host '[PASS] Staged installation replaces resource files.'
     Write-Host '[PASS] Existing configuration is preserved.'
-    Write-Host '[PASS] Previous resource backup and lockfile are created.'
+    Write-Host '[PASS] Previous resource backup, lockfile and upstream file manifest are created.'
 }
 finally {
     Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
