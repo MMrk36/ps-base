@@ -36,6 +36,10 @@ jobs:
         shell: pwsh
         run: ./tests/Test-Update.ps1
 
+      - name: Test multi-resource transactions and crash recovery
+        shell: pwsh
+        run: ./tests/Test-Transaction.ps1
+
       - name: Test resource status and safe uninstall
         shell: pwsh
         run: ./tests/Test-ResourceManagement.ps1
