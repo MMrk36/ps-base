@@ -36,6 +36,10 @@ jobs:
         shell: pwsh
         run: ./tests/Test-Update.ps1
 
+      - name: Test resource status and safe uninstall
+        shell: pwsh
+        run: ./tests/Test-ResourceManagement.ps1
+
       - name: Smoke test CLI catalog listing
         shell: pwsh
         run: ./PS-Base.ps1 list
