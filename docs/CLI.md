@@ -68,6 +68,17 @@ pwsh -File ./PS-Base.ps1 recover -TransactionId "<transaction-id>" -ServerPath "
 
 Transaction journals are stored under `.ps-base/transactions/`. Recovery restores resources that were prepared or updated before an interrupted transaction. Completed and already rolled-back transactions cannot be recovered again.
 
+### Use pinned installation profiles
+
+```powershell
+pwsh -File ./PS-Base.ps1 profiles
+pwsh -File ./PS-Base.ps1 plan -Profile standard
+pwsh -File ./PS-Base.ps1 install -Profile standard -ServerPath "D:/RedM/server"
+pwsh -File ./PS-Base.ps1 update -Profile standard -ServerPath "D:/RedM/server"
+```
+
+Profiles are defined in the catalog and pin an exact version for every top-level resource. Dependencies are resolved dependency-first; a profile pin is also used when a dependency does not specify its own version. An explicit dependency version that conflicts with a profile pin is rejected. Profiles cannot be combined with `-Version`.
+
 ### Interactive entry point
 
 Running the script without a command opens the initial menu. The menu currently exposes catalog listing and the planning command guidance. A full interactive installation flow will be added after the release and installation engine is implemented.
