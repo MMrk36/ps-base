@@ -5,6 +5,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 Import-Module (Join-Path $root 'src/PSBase/Update.psm1') -Force
+Import-Module (Join-Path $root 'src/PSBase/BackupManager.psm1') -Force
 Import-Module (Join-Path $root 'src/PSBase/FileManifest.psm1') -Force
 
 $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("ps-base-update-tests-" + [guid]::NewGuid().ToString('N'))
@@ -63,6 +64,16 @@ try {
     $lock = Get-Content (Join-Path $server '.ps-base/lock.json') -Raw | ConvertFrom-Json
     if ($lock.installedResources.'ps-test-resource'.version -ne '2.0.0') { throw 'Updated version was not recorded.' }
 
+    $backupId = Split-Path -Leaf $result.BackupPath
+    $backups = @(Get-PSBaseBackupList -ServerRoot $server)
+    if (-not ($backups | Where-Object BackupId -eq $backupId)) { throw 'Update backup metadata was not listed.' }
+    Set-Content -LiteralPath (Join-Path $installed 'unchanged.lua') -Value 'temporary local change' -NoNewline
+    $restore = Restore-PSBaseBackup -BackupId $backupId -ServerRoot $server -Confirm:$false
+    if ((Get-Content (Join-Path $installed 'unchanged.lua') -Raw) -ne 'old upstream') { throw 'Backup restore did not restore the previous resource files.' }
+    if (-not $restore.SafetyBackupPath -or -not (Test-Path -LiteralPath $restore.SafetyBackupPath -PathType Container)) { throw 'Restore did not preserve the pre-restore state.' }
+    $restoredLock = Get-Content (Join-Path $server '.ps-base/lock.json') -Raw | ConvertFrom-Json
+    if ($restoredLock.installedResources.PSObject.Properties['ps-test-resource']) { throw 'Restore did not restore the previous lockfile registration state.' }
+
     $beforeRollbackManifest = Get-Content -LiteralPath (Join-Path $server '.ps-base/manifests/ps-test-resource.json') -Raw
     Set-Content -LiteralPath (Join-Path $server '.ps-base/lock.json') -Value 'invalid lock data'
     $rollbackRelease = Join-Path $testRoot 'rollback-release'
@@ -83,12 +94,13 @@ try {
         $rollbackFailed = $true
     }
     if (-not $rollbackFailed) { throw 'Update did not reject an invalid lockfile.' }
-    if ((Get-Content (Join-Path $installed 'unchanged.lua') -Raw) -ne 'new upstream') { throw 'Failed update did not restore resource files.' }
+    if ((Get-Content (Join-Path $installed 'unchanged.lua') -Raw) -ne 'old upstream') { throw 'Failed update did not change the restored resource files.' }
     if ((Get-Content (Join-Path $server '.ps-base/manifests/ps-test-resource.json') -Raw) -ne $beforeRollbackManifest) { throw 'Failed update did not restore the previous manifest.' }
 
     Write-Host '[PASS] Update applies safe managed file changes.'
     Write-Host '[PASS] Local modifications, preserve-policy and untracked files remain untouched.'
     Write-Host '[PASS] Update backup, manifest and lockfile are recorded.'
+    Write-Host '[PASS] Backup listing and restore recover resource files and installation metadata.'
 }
 finally {
     Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue
