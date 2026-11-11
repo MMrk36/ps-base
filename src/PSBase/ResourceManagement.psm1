@@ -1,5 +1,6 @@
 Set-StrictMode -Version Latest
 Import-Module (Join-Path $PSScriptRoot 'FileManifest.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'BackupManager.psm1') -Force
 
 function Get-PSBaseResourceStatus {
     [CmdletBinding()]
@@ -122,7 +123,7 @@ function Invoke-PSBaseResourceUninstall {
     $manifestPath = Join-Path $server (".ps-base/manifests/" + $ResourceId + ".json")
     $manifest = Read-PSBaseFileManifest -Path $manifestPath
     $backupDirectory = Join-Path $server '.ps-base/backups'
-    $backup = Join-Path $backupDirectory ($ResourceId + '-uninstall-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + [guid]::NewGuid().ToString('N'))
+    $backup = $null
 
     $removable = [System.Collections.Generic.List[string]]::new()
     $protected = [System.Collections.Generic.List[string]]::new()
@@ -142,10 +143,10 @@ function Invoke-PSBaseResourceUninstall {
         return $null
     }
 
-    New-Item -ItemType Directory -Path $backupDirectory -Force | Out-Null
+    $backupMetadata = New-PSBaseBackup -ResourceId $ResourceId -ServerRoot $server -InstalledPath $installed -Reason 'uninstall'
+    $backup = $backupMetadata.BackupPath
     $manifestBackup = "$manifestPath.$([guid]::NewGuid().ToString('N')).bak"
     Copy-Item -LiteralPath $manifestPath -Destination $manifestBackup
-    Copy-Item -LiteralPath $installed -Destination $backup -Recurse
     try {
         foreach ($path in $removable) {
             Remove-Item -LiteralPath $path -Force
