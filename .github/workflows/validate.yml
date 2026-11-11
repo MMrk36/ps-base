@@ -32,6 +32,10 @@ jobs:
         shell: pwsh
         run: ./tests/Test-FileManifest.ps1
 
+      - name: Test transactional updates and local file protection
+        shell: pwsh
+        run: ./tests/Test-Update.ps1
+
       - name: Smoke test CLI catalog listing
         shell: pwsh
         run: ./PS-Base.ps1 list
