@@ -164,8 +164,12 @@ try {
 
                     $policies = [ordered]@{ default = 'managed'; rules = @() }
                     if ($null -ne $resourceEntry.PSObject.Properties['filePolicies']) {
-                        if ($resourceEntry.filePolicies.default) { $policies.default = [string]$resourceEntry.filePolicies.default }
-                        $policies.rules += @($resourceEntry.filePolicies.rules)
+                        if ($null -ne $resourceEntry.filePolicies.PSObject.Properties['default'] -and $resourceEntry.filePolicies.default) {
+                            $policies.default = [string]$resourceEntry.filePolicies.default
+                        }
+                        if ($null -ne $resourceEntry.filePolicies.PSObject.Properties['rules']) {
+                            $policies.rules += @($resourceEntry.filePolicies.rules)
+                        }
                     }
                     if ($null -ne $resourceEntry.PSObject.Properties['preservePaths']) {
                         foreach ($preservePath in @($resourceEntry.preservePaths)) {
