@@ -34,7 +34,7 @@ try {
         Repository = 'MMrk36/ps-test-resource'
     }
 
-    $upstreamConfigHash = $upstreamConfigHash
+    $upstreamConfigHash = (Get-FileHash -LiteralPath (Join-Path $stagedPath 'config.lua') -Algorithm SHA256).Hash.ToLowerInvariant()
     $result = Install-PSBaseResource -PlanItem $planItem -StagedPath $stagedPath -ServerRoot $serverRoot -ResourcesPath $resourcesPath -PreservePaths @('config.lua') -Confirm:$false
 
     if ((Get-Content -LiteralPath (Join-Path $targetPath 'config.lua') -Raw).Trim() -ne 'user setting') {
@@ -64,7 +64,7 @@ try {
         throw 'The installed release file manifest was not recorded.'
     }
     $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
-    if ($manifest.files.'config.lua'.sha256 -ne (Get-FileHash -LiteralPath (Join-Path $stagedPath 'config.lua') -Algorithm SHA256).Hash.ToLowerInvariant()) {
+    if ($manifest.files.'config.lua'.sha256 -ne $upstreamConfigHash) {
         throw 'The manifest did not retain the original upstream configuration baseline.'
     }
 
