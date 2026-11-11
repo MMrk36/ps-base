@@ -1,6 +1,6 @@
 # PS Base CLI
 
-The initial command-line interface targets PowerShell 7 or later.
+The command-line interface targets PowerShell 7 or later. Running `Start-PSBase.cmd` opens the Windows desktop installer; the CLI remains available for automation and diagnostics.
 
 Run commands from the repository directory:
 
