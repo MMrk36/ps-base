@@ -169,6 +169,9 @@ function Invoke-PSBaseResourceUpdate {
             Tag = $PlanItem.Tag
             Sha256 = $PlanItem.Sha256
             Repository = $PlanItem.Repository
+            ApiVersion = if ($null -ne $PlanItem.PSObject.Properties['ApiVersion']) { $PlanItem.ApiVersion } else { $null }
+            PsCoreApi = if ($null -ne $PlanItem.PSObject.Properties['PsCoreApi']) { $PlanItem.PsCoreApi } else { $null }
+            MinimumArtifact = if ($null -ne $PlanItem.PSObject.Properties['MinimumArtifact']) { $PlanItem.MinimumArtifact } else { $null }
             InstalledPath = [System.IO.Path]::GetRelativePath($server, $target)
         }
         Set-PSBaseUpdateLockEntry -Path $lockPath -ResourceId $PlanItem.Id -PlanItem $entry -BackupPath $relativeBackup
