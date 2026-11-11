@@ -6,12 +6,12 @@ It is designed to install and manage independently maintained RedM resources. Ea
 
 ## Current status
 
-The repository is a development workspace and Windows PowerShell 7 desktop installer. It includes a graphical interface, command-line operations, safe installation and update workflows, protected GitHub authentication, and release-catalog synchronization. Resource release-pipeline changes are being prepared in each resource repository. The current catalog remains intentionally non-installable until those pipelines are merged and preview releases are published.
+PS Base is a Windows desktop installer with a PowerShell 7 GUI and CLI engine. The distribution target is a single Windows x64 EXE that embeds the portable PowerShell runtime and extracts its versioned application payload on first launch. The EXE does not require a separate PowerShell installation.
 
 - Development workspace: Git submodules pinned by the PS Base repository.
-- Distribution: versioned release artifacts described by the resource catalog.
+- Distribution: a single-file Windows x64 launcher with embedded runtime and application payload.
 - Installation target: a user-selected RedM server `resources` directory.
-- Initial platform: Windows with PowerShell 7 or later.
+- Runtime: bundled portable PowerShell 7; the developer workspace still uses the locally installed PowerShell.
 
 Resources are not installable through PS Base until an official release artifact and checksum have been published and added to the catalog.
 
@@ -19,17 +19,20 @@ Resources are not installable through PS Base until an official release artifact
 
 ```text
 ps-base/
-├── catalog/          Resource distribution catalog
-├── docs/             Architecture and development documentation
-├── scripts/          Development and validation scripts
-├── src/PSBase/       PowerShell installer modules
-├── tests/            PowerShell tests
-├── ps-core/          Git submodule
-├── ps-characters/    Git submodule
-├── ps-database/      Git submodule
-├── ps-inventory/     Git submodule
-├── ps-notifications/ Git submodule
-└── ps-permissions/   Git submodule
+├── .github/workflows/ Build, validation and catalog workflows
+├── build/              Pinned desktop release toolchain
+├── catalog/            Resource distribution catalog
+├── docs/               Architecture and development documentation
+├── scripts/            Development and validation scripts
+├── src/PSBase/         PowerShell installer modules
+├── src/PSBase.Launcher/ Single-file Windows EXE launcher
+├── tests/              PowerShell tests
+├── ps-core/            Git submodule
+├── ps-characters/      Git submodule
+├── ps-database/        Git submodule
+├── ps-inventory/       Git submodule
+├── ps-notifications/   Git submodule
+└── ps-permissions/     Git submodule
 ```
 
 ## Clone the development workspace
@@ -52,7 +55,9 @@ pwsh -File ./scripts/Test-Repository.ps1
 
 ## Start the desktop installer
 
-On Windows with PowerShell 7+, run `Start-PSBase.cmd`. The interface selects a RedM server folder, browses resources and profiles, reviews dependency plans, installs and updates resources, and manages status, backups, restore, uninstall and interrupted transaction recovery. It uses the same PowerShell engine as the CLI.
+For end users, download and run `PS-Base.exe` from a PS Base GitHub release. The first launch extracts the embedded files and portable PowerShell runtime into the current user's Local AppData folder. No PowerShell installation or separate ZIP is needed.
+
+For contributors running from a source checkout, install PowerShell 7+ and run `Start-PSBase.cmd`. The interface selects a RedM server folder, browses resources and profiles, reviews dependency plans, installs and updates resources, and manages status, backups, restore, uninstall and interrupted transaction recovery.
 
 For private resource repositories, provide a fine-grained GitHub token with read-only Contents access. The Windows interface stores it using current-user DPAPI; it is never written into the server directory or lockfile.
 
@@ -66,7 +71,7 @@ The CLI supports installation profiles, resource status, safe updates, journaled
 
 Updates are explicit. Database migrations never run automatically as a side effect of installing or updating resource files. See [docs/CLI.md](docs/CLI.md), [docs/INSTALLATION.md](docs/INSTALLATION.md), and [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) for usage and metadata rules.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design principles, [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for contributor workflow, [docs/CLI.md](docs/CLI.md) for commands, and [docs/RELEASING.md](docs/RELEASING.md) for resource publishing.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design principles, [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for contributor workflow, [docs/CLI.md](docs/CLI.md) for commands, and [docs/RELEASING.md](docs/RELEASING.md) for resource and desktop publishing.
 
 ## Security
 
@@ -79,7 +84,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design principles, [doc
 - Preserve untracked files, local deletions and catalog-marked preserve-policy files.
 - Back up updates and retain resource, manifest and lockfile metadata for restore.
 - Journal multi-resource update operations and provide interrupted-transaction recovery.
+- The EXE extracts only its embedded, versioned application payload under the current user's Local AppData directory.
 
 ## License
 
-Licensing and redistribution terms will be documented before public installer releases. Each resource retains its own license and third-party attribution requirements.
+Licensing and redistribution terms must be documented before public installer releases. Each resource retains its own license and third-party attribution requirements. The bundled PowerShell and .NET runtimes retain their upstream licenses and notices.
