@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "catalogVersion": "0.1.0",
+  "profiles": [],
   "resources": [
     {
       "id": "ps-core",
