@@ -26,17 +26,19 @@ function Test-PSBaseApiRange {
     }
 
     $actual = ConvertTo-PSBaseComparableVersion -Value $ApiVersion -Label 'PS Core API version'
-    if (-not [string]::IsNullOrWhiteSpace([string]$Range.minVersion)) {
-        $minimum = ConvertTo-PSBaseComparableVersion -Value $Range.minVersion -Label 'Minimum PS Core API version'
+    $minimumVersion = if ($null -ne $Range.PSObject.Properties['minVersion']) { [string]$Range.minVersion } else { $null }
+    $maximumVersion = if ($null -ne $Range.PSObject.Properties['maxVersion']) { [string]$Range.maxVersion } else { $null }
+    if (-not [string]::IsNullOrWhiteSpace($minimumVersion)) {
+        $minimum = ConvertTo-PSBaseComparableVersion -Value $minimumVersion -Label 'Minimum PS Core API version'
         if ($actual -lt $minimum) {
             throw "Resource '$ResourceId' requires PS Core API $($Range.minVersion) or newer; selected API is $ApiVersion."
         }
     }
 
-    if (-not [string]::IsNullOrWhiteSpace([string]$Range.maxVersion)) {
-        $maximum = ConvertTo-PSBaseComparableVersion -Value $Range.maxVersion -Label 'Maximum PS Core API version'
+    if (-not [string]::IsNullOrWhiteSpace($maximumVersion)) {
+        $maximum = ConvertTo-PSBaseComparableVersion -Value $maximumVersion -Label 'Maximum PS Core API version'
         if ($actual -ge $maximum) {
-            throw "Resource '$ResourceId' requires a PS Core API older than $($Range.maxVersion); selected API is $ApiVersion."
+            throw "Resource '$ResourceId' requires a PS Core API older than $maximumVersion; selected API is $ApiVersion."
         }
     }
 
@@ -121,7 +123,7 @@ function Test-PSBaseCompatibility {
                 $resource = @($Catalog.resources | Where-Object { $_.id -ieq $resourceId }) | Select-Object -First 1
                 if ($null -ne $resource) {
                     $release = @($resource.releases | Where-Object { $_.version -eq $entry.Value.version }) | Select-Object -First 1
-                    if ($null -ne $release) { $range = $release.psCoreApi }
+                    if ($null -ne $release -and $null -ne $release.PSObject.Properties['psCoreApi']) { $range = $release.psCoreApi }
                 }
             }
 
