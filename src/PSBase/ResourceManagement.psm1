@@ -25,7 +25,7 @@ function Get-PSBaseResourceStatus {
     $results = [System.Collections.Generic.List[object]]::new()
     foreach ($resource in $lock.installedResources.GetEnumerator()) {
         $relativeInstall = [string]$resource.Value.installedPath
-        if ([string]::IsNullOrWhiteSpace($relativeInstall) -or [System.IO.Path]::IsPathRooted($relativeInstall) -or $relativeInstall.Contains('..')) {
+        if ([string]::IsNullOrWhiteSpace($relativeInstall) -or [System.IO.Path]::IsPathRooted($relativeInstall) -or ($relativeInstall -split '[\\/]+' -contains '..') -or (Split-Path -Leaf $relativeInstall) -ine $resource.Key) {
             throw "Unsafe installed path for '$($resource.Key)'."
         }
 
@@ -99,7 +99,7 @@ function Invoke-PSBaseResourceUninstall {
 
     $entry = $lock.installedResources[$ResourceId]
     $relativeInstall = [string]$entry.installedPath
-    if ([string]::IsNullOrWhiteSpace($relativeInstall) -or [System.IO.Path]::IsPathRooted($relativeInstall) -or $relativeInstall.Contains('..')) {
+    if ([string]::IsNullOrWhiteSpace($relativeInstall) -or [System.IO.Path]::IsPathRooted($relativeInstall) -or ($relativeInstall -split '[\\/]+' -contains '..') -or (Split-Path -Leaf $relativeInstall) -ine $ResourceId) {
         throw 'The installed resource path in the lockfile is unsafe.'
     }
 
@@ -108,6 +108,15 @@ function Invoke-PSBaseResourceUninstall {
     if (-not $installed.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) -or
         -not (Test-Path -LiteralPath $installed -PathType Container)) {
         throw 'The installed resource directory is missing or outside the server root.'
+    }
+
+    if (($installed.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+        throw 'The installed resource directory cannot be a symbolic link or reparse point.'
+    }
+    foreach ($item in Get-ChildItem -LiteralPath $installed -Recurse -Force) {
+        if (($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Resource contains a symbolic link or reparse point: $($item.FullName)"
+        }
     }
 
     $manifestPath = Join-Path $server (".ps-base/manifests/" + $ResourceId + ".json")
