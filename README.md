@@ -6,7 +6,7 @@ It is designed to install and manage independently maintained RedM resources. Ea
 
 ## Current status
 
-The repository is a development workspace and Windows PowerShell 7 desktop installer. It includes a graphical interface, command-line operations, safe installation and update workflows, protected GitHub authentication, and release-catalog synchronization. Actual resource installation becomes available as soon as the resource repositories publish tagged preview/stable releases and the catalog sync completes.
+The repository is a development workspace and Windows PowerShell 7 desktop installer. It includes a graphical interface, command-line operations, safe installation and update workflows, protected GitHub authentication, and release-catalog synchronization. Resource release-pipeline changes are being prepared in each resource repository. The current catalog remains intentionally non-installable until those pipelines are merged and preview releases are published.
 
 - Development workspace: Git submodules pinned by the PS Base repository.
 - Distribution: versioned release artifacts described by the resource catalog.
@@ -50,6 +50,14 @@ Requires Git and PowerShell 7+.
 pwsh -File ./scripts/Test-Repository.ps1
 ```
 
+## Start the desktop installer
+
+On Windows with PowerShell 7+, run `Start-PSBase.cmd`. The interface selects a RedM server folder, browses resources and profiles, reviews dependency plans, installs and updates resources, and manages status, backups, restore, uninstall and interrupted transaction recovery. It uses the same PowerShell engine as the CLI.
+
+For private resource repositories, provide a fine-grained GitHub token with read-only Contents access. The Windows interface stores it using current-user DPAPI; it is never written into the server directory or lockfile.
+
+Maintainers can synchronize published releases with `pwsh -File ./PS-Base.ps1 sync-catalog`. The scheduled catalog workflow requires the `PSBASE_RELEASES_TOKEN` Actions secret with read-only access to all resource repositories.
+
 ## Installer workflow
 
 PS Base resolves exact resource versions and dependencies from the catalog, downloads official HTTPS release artifacts, verifies SHA-256 checksums, inspects archives, and installs through a staged process. Fresh installs refuse to overwrite existing resource folders.
@@ -58,7 +66,7 @@ The CLI supports installation profiles, resource status, safe updates, journaled
 
 Updates are explicit. Database migrations never run automatically as a side effect of installing or updating resource files. See [docs/CLI.md](docs/CLI.md), [docs/INSTALLATION.md](docs/INSTALLATION.md), and [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) for usage and metadata rules.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design principles and [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for contributor workflow.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design principles, [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for contributor workflow, [docs/CLI.md](docs/CLI.md) for commands, and [docs/RELEASING.md](docs/RELEASING.md) for resource publishing.
 
 ## Security
 
