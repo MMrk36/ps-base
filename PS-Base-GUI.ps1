@@ -242,7 +242,10 @@ function Get-CommandArgs {
         if ($NeedsSelection -and $ids.Count -eq 0) {
             throw 'Select at least one installable resource or choose an installation profile.'
         }
-        foreach ($id in $ids) { $args.Add('-Resource'); $args.Add($id) }
+        if ($ids.Count -gt 0) {
+            $args.Add('-Resource')
+            foreach ($id in $ids) { $args.Add($id) }
+        }
     }
     return $args.ToArray()
 }
