@@ -46,6 +46,18 @@ function Get-PSBaseCatalog {
             throw "Resource '$($resource.id)' releases must be an array."
         }
 
+        if ($null -ne $resource.PSObject.Properties['filePolicies']) {
+            $policies = $resource.filePolicies
+            if ($null -ne $policies.PSObject.Properties['default'] -and $policies.default -notin @('managed', 'preserve', 'replace')) {
+                throw "Resource '$($resource.id)' has an invalid default file policy."
+            }
+            foreach ($rule in @($policies.rules)) {
+                if ([string]::IsNullOrWhiteSpace([string]$rule.pattern) -or $rule.policy -notin @('managed', 'preserve', 'replace')) {
+                    throw "Resource '$($resource.id)' has an invalid file policy rule."
+                }
+            }
+        }
+
         if ($resource.installable -and $resource.releases.Count -eq 0) {
             throw "Resource '$($resource.id)' is installable but has no releases."
         }
