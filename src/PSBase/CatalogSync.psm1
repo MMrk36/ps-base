@@ -73,7 +73,12 @@ function ConvertTo-PSBaseReleaseEntry {
     )
 
     $tag = [string]$GitHubRelease.tag_name
-    if ($tag -notmatch '^v?([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)
+    if ($tag -notmatch '^v?([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)$') {
+        throw "Release tag '$tag' is not a supported semantic version tag."
+    }
+    $tagVersion = $Matches[1]
+
+    if ($Metadata.schemaVersion -ne 1 -or
         [string]::IsNullOrWhiteSpace([string]$Metadata.id) -or
         [string]::IsNullOrWhiteSpace([string]$Metadata.version) -or
         $Metadata.version -cne $tagVersion -or
