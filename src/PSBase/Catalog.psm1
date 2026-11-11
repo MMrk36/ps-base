@@ -74,6 +74,34 @@ function Get-PSBaseCatalog {
             if ($release.url -notmatch '^https://' -or $release.sha256 -notmatch '^[A-Fa-f0-9]{64}$') {
                 throw "Release '$($resource.id)@$($release.version)' has an invalid URL or SHA-256 checksum."
             }
+
+            if ($null -ne $release.PSObject.Properties['apiVersion'] -and
+                $release.apiVersion -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
+                throw "Release '$($resource.id)@$($release.version)' has an invalid PS Core API version."
+            }
+
+            if ($null -ne $release.PSObject.Properties['minimumArtifact'] -and
+                $release.minimumArtifact -notmatch '^[0-9]+(?:\.[0-9]+){0,3}$') {
+                throw "Release '$($resource.id)@$($release.version)' has an invalid minimum artifact version."
+            }
+
+            if ($null -ne $release.PSObject.Properties['psCoreApi']) {
+                $range = $release.psCoreApi
+                $hasMinimum = $null -ne $range.PSObject.Properties['minVersion']
+                $hasMaximum = $null -ne $range.PSObject.Properties['maxVersion']
+                if (-not $hasMinimum -and -not $hasMaximum) {
+                    throw "Release '$($resource.id)@$($release.version)' has an empty PS Core API range."
+                }
+                if ($hasMinimum -and $range.minVersion -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
+                    throw "Release '$($resource.id)@$($release.version)' has an invalid minimum PS Core API version."
+                }
+                if ($hasMaximum -and $range.maxVersion -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
+                    throw "Release '$($resource.id)@$($release.version)' has an invalid maximum PS Core API version."
+                }
+                if ($hasMinimum -and $hasMaximum -and ([version]$range.minVersion -ge [version]$range.maxVersion)) {
+                    throw "Release '$($resource.id)@$($release.version)' has an invalid PS Core API version range."
+                }
+            }
         }
     }
 
