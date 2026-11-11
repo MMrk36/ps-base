@@ -4,8 +4,8 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-Import-Module (Join-Path $root 'src/PSBase/FileManifest.psm1') -Force
 Import-Module (Join-Path $root 'src/PSBase/Update.psm1') -Force
+Import-Module (Join-Path $root 'src/PSBase/FileManifest.psm1') -Force
 
 $testRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("ps-base-update-tests-" + [guid]::NewGuid().ToString('N'))
 $server = Join-Path $testRoot 'server'
