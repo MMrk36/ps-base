@@ -53,8 +53,14 @@ jobs:
       - name: Download and verify portable PowerShell
         shell: pwsh
         run: |
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
           $version = "${{ steps.toolchain.outputs.powershell }}"
-          $headers = @{ 'User-Agent' = 'PedroScripts-PSBase-Release' }
+          $headers = @{
+            Authorization = "Bearer $env:GITHUB_TOKEN"
+            'X-GitHub-Api-Version' = '2022-11-28'
+            'User-Agent' = 'PedroScripts-PSBase-Release'
+          }
           $release = Invoke-RestMethod -Uri "https://api.github.com/repos/PowerShell/PowerShell/releases/tags/v$version" -Headers $headers
           if ($release.prerelease -or $release.draft) {
             throw "Pinned PowerShell version v$version is not a stable published release."
