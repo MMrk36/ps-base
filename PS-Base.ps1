@@ -1,6 +1,6 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [ValidateSet('menu', 'list', 'plan', 'install')]
+    [ValidateSet('menu', 'list', 'plan', 'install', 'update')]
     [string]$Command = 'menu',
 
     [string[]]$Resource,
@@ -22,11 +22,13 @@ $catalogModule = Join-Path $root 'src/PSBase/Catalog.psm1'
 $resolverModule = Join-Path $root 'src/PSBase/DependencyResolver.psm1'
 $artifactModule = Join-Path $root 'src/PSBase/Artifact.psm1'
 $installerModule = Join-Path $root 'src/PSBase/Installer.psm1'
+$updateModule = Join-Path $root 'src/PSBase/Update.psm1'
 
 Import-Module $resolverModule -Force
 Import-Module $catalogModule -Force
 Import-Module $artifactModule -Force
 Import-Module $installerModule -Force
+Import-Module $updateModule -Force
 
 try {
     $catalog = if ([string]::IsNullOrWhiteSpace($CatalogPath)) {
@@ -120,6 +122,79 @@ try {
                     Write-Warning "Installation stopped after: $($installed -join ', '). Those resources remain installed."
                 }
                 throw
+            }
+            finally {
+                Remove-Item -LiteralPath $temporaryRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+
+        'update' {
+            if (-not $Resource -or $Resource.Count -eq 0) {
+                throw 'Specify at least one installed resource with -Resource.'
+            }
+            if ([string]::IsNullOrWhiteSpace($ServerPath) -or -not (Test-Path -LiteralPath $ServerPath -PathType Container)) {
+                throw 'Specify an existing RedM server root with -ServerPath.'
+            }
+
+            $serverRoot = [System.IO.Path]::GetFullPath($ServerPath)
+            $resourcesRoot = if ([string]::IsNullOrWhiteSpace($ResourcesPath)) { Join-Path $serverRoot 'resources' } else { [System.IO.Path]::GetFullPath($ResourcesPath) }
+            if (-not (Test-Path -LiteralPath $resourcesRoot -PathType Container)) { throw "Resources directory does not exist: $resourcesRoot" }
+            $plan = @(Resolve-PSBaseInstallPlan -Catalog $catalog -ResourceIds $Resource -Version $Version)
+            $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("ps-base-update-" + [guid]::NewGuid().ToString('N'))
+            $prepared = [System.Collections.Generic.List[object]]::new()
+
+            try {
+                foreach ($item in $plan) {
+                    $resourceEntry = Get-PSBaseResource -Catalog $catalog -Id $item.Id
+                    $targetPath = Join-Path $resourcesRoot $item.Id
+                    if (-not (Test-Path -LiteralPath $targetPath -PathType Container)) {
+                        throw "Resource '$($item.Id)' is not installed at '$targetPath'. Install it before updating."
+                    }
+
+                    $release = Get-PSBaseRelease -Resource $resourceEntry -Version $item.Version
+                    $downloadDirectory = Join-Path $temporaryRoot 'downloads'
+                    $stagePath = Join-Path (Join-Path $temporaryRoot 'staging') $item.Id
+                    $archivePath = Get-PSBaseArtifact -Release $release -DestinationDirectory $downloadDirectory
+                    Expand-PSBaseArtifact -ArchivePath $archivePath -DestinationPath $stagePath | Out-Null
+
+                    $policies = [ordered]@{ default = 'managed'; rules = @() }
+                    if ($null -ne $resourceEntry.PSObject.Properties['filePolicies']) {
+                        if ($resourceEntry.filePolicies.default) { $policies.default = [string]$resourceEntry.filePolicies.default }
+                        $policies.rules += @($resourceEntry.filePolicies.rules)
+                    }
+                    if ($null -ne $resourceEntry.PSObject.Properties['preservePaths']) {
+                        foreach ($preservePath in @($resourceEntry.preservePaths)) {
+                            $policies.rules += [pscustomobject]@{ pattern = $preservePath; policy = 'preserve' }
+                        }
+                    }
+
+                    $manifest = Get-PSBaseFileManifest -Root $stagePath -FilePolicies $policies
+                    $manifestPath = Join-Path $serverRoot (".ps-base/manifests/" + $item.Id + ".json")
+                    $previousManifest = Read-PSBaseFileManifest -Path $manifestPath
+                    $filePlan = @(Get-PSBaseUpdatePlan -InstalledPath $targetPath -PreviousManifest $previousManifest -NewManifest $manifest)
+                    $prepared.Add([pscustomobject]@{
+                        Item = $item
+                        StagePath = $stagePath
+                        TargetPath = $targetPath
+                        Policies = $policies
+                        FilePlan = $filePlan
+                    })
+                }
+
+                foreach ($entry in $prepared) {
+                    Write-Host "Update plan: $($entry.Item.Id) -> $($entry.Item.Version)" -ForegroundColor Cyan
+                    $entry.FilePlan | Format-Table Path, Action, Reason -Wrap -AutoSize
+                }
+
+                $summary = ($plan | ForEach-Object { "$($_.Id) $($_.Version)" }) -join ', '
+                if (-not $PSCmdlet.ShouldProcess($serverRoot, "Update $summary")) { return }
+
+                foreach ($entry in $prepared) {
+                    $result = Invoke-PSBaseResourceUpdate -PlanItem $entry.Item -StagedPath $entry.StagePath -ServerRoot $serverRoot -InstalledPath $entry.TargetPath -FilePolicies $entry.Policies -Confirm:$false
+                    Write-Host "Updated $($entry.Item.Id) to $($entry.Item.Version). Applied $($result.Changes) file changes." -ForegroundColor Green
+                    if ($result.Changes -eq 0) { Write-Host 'No file changes were necessary.' }
+                }
             }
             finally {
                 Remove-Item -LiteralPath $temporaryRoot -Recurse -Force -ErrorAction SilentlyContinue
