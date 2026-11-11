@@ -156,6 +156,9 @@ function Install-PSBaseResource {
             tag = $PlanItem.Tag
             sha256 = $PlanItem.Sha256
             repository = $PlanItem.Repository
+            apiVersion = $PlanItem.ApiVersion
+            psCoreApi = $PlanItem.PsCoreApi
+            minimumArtifact = $PlanItem.MinimumArtifact
             installedPath = [System.IO.Path]::GetRelativePath($ServerRoot, $targetPath)
             installedAt = [DateTime]::UtcNow.ToString('o')
             backupPath = if ($hadPrevious) { [System.IO.Path]::GetRelativePath($ServerRoot, $backupPath) } else { $null }
