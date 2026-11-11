@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <AssemblyName>PSBase.Launcher</AssemblyName>
+    <RootNamespace>PSBase.Launcher</RootNamespace>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <PublishSingleFile>true</PublishSingleFile>
+    <SelfContained>true</SelfContained>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
+    <DebugSymbols>false</DebugSymbols>
+  </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="$(PayloadPath)" LogicalName="PSBase.Launcher.payload.zip" />
+  </ItemGroup>
+  <Target Name="ValidatePayload" BeforeTargets="PrepareForBuild">
+    <Error Condition="'$(PayloadPath)' == '' or !Exists('$(PayloadPath)')" Text="PayloadPath must point to the prepared PS Base payload ZIP." />
+  </Target>
+</Project>
