@@ -32,7 +32,7 @@ This roadmap tracks implementation status. A feature is marked complete only whe
 - [x] Backup listing and restore with resource, manifest and lockfile metadata snapshots.
 - [x] Individual resource update workflow with SHA-256 file baselines and local-change protection.
 - [x] Journaled multi-resource update transactions with reverse-order rollback and interrupted-operation recovery.
-- [ ] Dependency and compatibility upgrade checks.
+- [x] PS Core API range and minimum server artifact compatibility checks, including installed dependents during core upgrades.
 - [x] Profile catalog with exact resource-version pins and dependency-aware resolution.
 - [x] Safe uninstall with backup, confirmation and preservation of local files.
 
