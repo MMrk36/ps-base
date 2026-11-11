@@ -31,8 +31,8 @@ Import-Module $catalogModule -Force
 Import-Module $artifactModule -Force
 Import-Module $installerModule -Force
 Import-Module $updateModule -Force
-Import-Module $fileManifestModule -Force
 Import-Module $resourceManagementModule -Force
+Import-Module $fileManifestModule -Force
 
 try {
     $catalog = if ([string]::IsNullOrWhiteSpace($CatalogPath)) {
