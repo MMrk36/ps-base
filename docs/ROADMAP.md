@@ -28,13 +28,13 @@ This roadmap tracks implementation status. A feature is marked complete only whe
 
 ## Resource management
 
-- [ ] Installed resource status and integrity report.
+- [x] Installed resource status and file integrity report.
 - [ ] Backup listing and restore command.
-- [ ] Individual resource update workflow.
+- [x] Individual resource update workflow with SHA-256 file baselines and local-change protection.
 - [ ] Multi-resource operation recovery.
 - [ ] Dependency and compatibility upgrade checks.
 - [ ] Profile catalog with pinned resource versions.
-- [ ] Safe uninstall with backup and confirmation.
+- [x] Safe uninstall with backup, confirmation and preservation of local files.
 
 ## Distribution and platform expansion
 
