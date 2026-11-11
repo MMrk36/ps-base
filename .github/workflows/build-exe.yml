@@ -2,8 +2,10 @@ name: Build PS Base Windows EXE
 
 on:
   push:
+    branches: [main, "feat/**", "fix/**"]
     tags:
       - "v*"
+  pull_request:
   workflow_dispatch:
 
 permissions:
