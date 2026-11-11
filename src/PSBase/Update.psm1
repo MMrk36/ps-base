@@ -25,6 +25,9 @@ function Set-PSBaseUpdateLockEntry {
         tag = $PlanItem.Tag
         sha256 = $PlanItem.Sha256
         repository = $PlanItem.Repository
+        apiVersion = $PlanItem.ApiVersion
+        psCoreApi = $PlanItem.PsCoreApi
+        minimumArtifact = $PlanItem.MinimumArtifact
         installedPath = $PlanItem.InstalledPath
         installedAt = [DateTime]::UtcNow.ToString('o')
         backupPath = $BackupPath
