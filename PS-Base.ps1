@@ -1,6 +1,6 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [ValidateSet('menu', 'list', 'plan', 'install', 'update')]
+    [ValidateSet('menu', 'list', 'plan', 'install', 'update', 'status', 'uninstall')]
     [string]$Command = 'menu',
 
     [string[]]$Resource,
@@ -24,6 +24,7 @@ $artifactModule = Join-Path $root 'src/PSBase/Artifact.psm1'
 $installerModule = Join-Path $root 'src/PSBase/Installer.psm1'
 $updateModule = Join-Path $root 'src/PSBase/Update.psm1'
 $fileManifestModule = Join-Path $root 'src/PSBase/FileManifest.psm1'
+$resourceManagementModule = Join-Path $root 'src/PSBase/ResourceManagement.psm1'
 
 Import-Module $resolverModule -Force
 Import-Module $catalogModule -Force
@@ -31,6 +32,7 @@ Import-Module $artifactModule -Force
 Import-Module $installerModule -Force
 Import-Module $updateModule -Force
 Import-Module $fileManifestModule -Force
+Import-Module $resourceManagementModule -Force
 
 try {
     $catalog = if ([string]::IsNullOrWhiteSpace($CatalogPath)) {
@@ -201,6 +203,33 @@ try {
             finally {
                 Remove-Item -LiteralPath $temporaryRoot -Recurse -Force -ErrorAction SilentlyContinue
             }
+        }
+
+
+        'status' {
+            if ([string]::IsNullOrWhiteSpace($ServerPath) -or -not (Test-Path -LiteralPath $ServerPath -PathType Container)) {
+                throw 'Specify an existing RedM server root with -ServerPath.'
+            }
+            $status = @(Get-PSBaseResourceStatus -ServerRoot $ServerPath)
+            if ($status.Count -eq 0) {
+                Write-Host 'No PS Base-managed resources were found.'
+            }
+            else {
+                $status | Format-Table Id, Version, State, ModifiedFiles, MissingFiles, UntrackedFiles -AutoSize
+            }
+        }
+
+        'uninstall' {
+            if (-not $Resource -or $Resource.Count -ne 1) {
+                throw 'Specify exactly one resource with -Resource.'
+            }
+            if ([string]::IsNullOrWhiteSpace($ServerPath) -or -not (Test-Path -LiteralPath $ServerPath -PathType Container)) {
+                throw 'Specify an existing RedM server root with -ServerPath.'
+            }
+            if (-not $PSCmdlet.ShouldProcess($ServerPath, "Safely uninstall $($Resource[0])")) { return }
+            $result = Invoke-PSBaseResourceUninstall -ResourceId $Resource[0] -ServerRoot $ServerPath -Confirm:$false
+            Write-Host "Uninstall result: $($result.State). Removed $($result.RemovedFiles) managed files; preserved $($result.PreservedFiles) local files." -ForegroundColor Green
+            Write-Host "Backup: $($result.BackupPath)"
         }
 
         'menu' {
