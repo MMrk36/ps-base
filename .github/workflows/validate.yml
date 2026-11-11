@@ -52,6 +52,20 @@ jobs:
         shell: pwsh
         run: ./tests/Test-ResourceManagement.ps1
 
-      - name: Smoke test CLI catalog listing
+      - name: Test GitHub release catalog metadata
         shell: pwsh
-        run: ./PS-Base.ps1 list
+        run: ./tests/Test-CatalogSync.ps1
+
+      - name: Test protected GitHub credentials
+        shell: pwsh
+        run: ./tests/Test-Auth.ps1
+
+      - name: Validate desktop interface and launcher
+        shell: pwsh
+        run: ./tests/Test-GUI.ps1
+
+      - name: Smoke test CLI catalog listing and profiles
+        shell: pwsh
+        run: |
+          ./PS-Base.ps1 list
+          ./PS-Base.ps1 profiles
