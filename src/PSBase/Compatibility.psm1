@@ -26,8 +26,14 @@ function Test-PSBaseApiRange {
     }
 
     $actual = ConvertTo-PSBaseComparableVersion -Value $ApiVersion -Label 'PS Core API version'
-    $minimumVersion = if ($null -ne $Range.PSObject.Properties['minVersion']) { [string]$Range.minVersion } else { $null }
-    $maximumVersion = if ($null -ne $Range.PSObject.Properties['maxVersion']) { [string]$Range.maxVersion } else { $null }
+    if ($Range -is [System.Collections.IDictionary]) {
+        $minimumVersion = if ($Range.Contains('minVersion')) { [string]$Range['minVersion'] } else { $null }
+        $maximumVersion = if ($Range.Contains('maxVersion')) { [string]$Range['maxVersion'] } else { $null }
+    }
+    else {
+        $minimumVersion = if ($null -ne $Range.PSObject.Properties['minVersion']) { [string]$Range.minVersion } else { $null }
+        $maximumVersion = if ($null -ne $Range.PSObject.Properties['maxVersion']) { [string]$Range.maxVersion } else { $null }
+    }
     if (-not [string]::IsNullOrWhiteSpace($minimumVersion)) {
         $minimum = ConvertTo-PSBaseComparableVersion -Value $minimumVersion -Label 'Minimum PS Core API version'
         if ($actual -lt $minimum) {
