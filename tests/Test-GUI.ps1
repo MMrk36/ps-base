@@ -18,8 +18,30 @@ if ($errors.Count -gt 0) {
 }
 
 if (-not (Test-Path -LiteralPath (Join-Path $root 'Start-PSBase.cmd') -PathType Leaf)) {
-    throw 'The Windows desktop launcher is missing.'
+    throw 'The Windows development launcher is missing.'
+}
+
+$launcherProject = Join-Path $root 'src/PSBase.Launcher/PSBase.Launcher.csproj'
+$launcherSource = Join-Path $root 'src/PSBase.Launcher/Program.cs'
+if (-not (Test-Path -LiteralPath $launcherProject -PathType Leaf) -or
+    -not (Test-Path -LiteralPath $launcherSource -PathType Leaf)) {
+    throw 'The single-file Windows EXE launcher project is incomplete.'
+}
+
+[xml]$project = Get-Content -LiteralPath $launcherProject -Raw
+if ($project.Project.PropertyGroup.TargetFramework -ne 'net10.0-windows' -or
+    $project.Project.PropertyGroup.PublishSingleFile -ne 'true' -or
+    $project.Project.PropertyGroup.SelfContained -ne 'true') {
+    throw 'The launcher must publish as a self-contained single-file Windows application.'
+}
+
+$sourceText = Get-Content -LiteralPath $launcherSource -Raw
+foreach ($requiredText in @('PSBase.Launcher.payload.zip', 'EnsurePayloadExtracted', 'runtime/pwsh.exe', '--self-test')) {
+    if (-not $sourceText.Contains($requiredText)) {
+        throw "The EXE launcher is missing required behavior: $requiredText"
+    }
 }
 
 Write-Host '[PASS] Desktop interface PowerShell syntax is valid.'
-Write-Host '[PASS] Windows desktop launcher exists.'
+Write-Host '[PASS] Windows development launcher exists.'
+Write-Host '[PASS] Single-file EXE launcher project is configured.'

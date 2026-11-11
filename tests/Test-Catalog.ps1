@@ -14,21 +14,65 @@ if ($catalog.resources.Count -ne 6) {
 }
 
 foreach ($resource in $catalog.resources) {
-    if ($resource.installable) {
-        throw "Development resource '$($resource.id)' must not be installable without a published release."
+    if ($resource.installable -and $resource.releases.Count -eq 0) {
+        throw "Installable resource '$($resource.id)' has no published release."
+    }
+
+    foreach ($release in $resource.releases) {
+        if ([string]::IsNullOrWhiteSpace([string]$release.version) -or
+            [string]::IsNullOrWhiteSpace([string]$release.tag) -or
+            [string]::IsNullOrWhiteSpace([string]$release.asset) -or
+            $release.url -notmatch '^https://' -or
+            $release.sha256 -notmatch '^[A-Fa-f0-9]{64}$') {
+            throw "Resource '$($resource.id)' contains an incomplete or invalid release entry."
+        }
     }
 }
 
+$core = Get-PSBaseResource -Catalog $catalog -Id 'ps-core'
 $blocked = $false
 try {
-    Resolve-PSBaseInstallPlan -Catalog $catalog -ResourceIds @('ps-core')
+    Get-PSBaseRelease -Resource $core | Out-Null
+}
+catch {
+    $blocked = $_.Exception.Message -match 'No stable semantic version'
+}
+
+if (-not $blocked) {
+    throw 'A preview release was incorrectly selected as the default stable release.'
+}
+
+$corePlan = @(Resolve-PSBaseInstallPlan -Catalog $catalog -ResourceIds @('ps-core') -Version '0.1.0')
+if ($corePlan.Count -ne 1 -or $corePlan[0].Id -ne 'ps-core' -or $corePlan[0].Version -ne '0.1.0') {
+    throw 'An explicitly selected preview release could not be installed.'
+}
+
+$databasePlan = @(Resolve-PSBaseInstallPlan -Catalog $catalog -ResourceIds @('ps-database') -Version '0.1.0')
+if ($databasePlan.Count -ne 2 -or
+    $databasePlan[0].Id -ne 'ps-core' -or
+    $databasePlan[0].Version -ne '0.1.0' -or
+    $databasePlan[1].Id -ne 'ps-database') {
+    throw 'Preview dependency pins did not resolve in dependency-first order.'
+}
+
+$unavailable = [pscustomobject]@{
+    id = 'ps-unavailable'
+    name = 'Unavailable Resource'
+    repository = 'MMrk36/ps-unavailable'
+    status = 'development'
+    installable = $false
+    releases = @()
+}
+$blocked = $false
+try {
+    Get-PSBaseRelease -Resource $unavailable | Out-Null
 }
 catch {
     $blocked = $_.Exception.Message -match 'not installable'
 }
 
 if (-not $blocked) {
-    throw 'The resolver did not reject a development-only resource.'
+    throw 'The resolver did not reject a resource marked as non-installable.'
 }
 
 $hash = 'a' * 64
@@ -128,6 +172,8 @@ if (-not $cycleBlocked) {
     throw 'The resolver did not detect a dependency cycle.'
 }
 
-Write-Host '[PASS] Catalog loading and development release safeguards.'
+Write-Host '[PASS] Installable preview releases are validated and remain explicitly selectable.'
+Write-Host '[PASS] Preview dependencies resolve through exact version pins.'
+Write-Host '[PASS] Non-installable resources remain blocked.'
 Write-Host '[PASS] Dependency-first ordering and exact version pins.'
 Write-Host '[PASS] Dependency cycle detection.'

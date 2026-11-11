@@ -2,15 +2,27 @@
 
 ## Getting started on Windows
 
-1. Install PowerShell 7 or later.
-2. Clone/download the PS Base workspace with its submodules, or obtain the packaged PS Base installer from the official distribution.
-3. Run `Start-PSBase.cmd`.
+### Single-file release
+
+1. Download `PS-Base.exe` from the official PS Base GitHub release.
+2. Run the EXE. No separate PowerShell installation is required.
+3. On first launch, PS Base extracts its bundled application and portable PowerShell runtime into the current Windows user's Local AppData directory. Later launches reuse that copy.
 4. Select the RedM server root containing `server.cfg` and `resources`.
 5. Add a GitHub fine-grained token with read-only Contents access to the private PS Base and resource repositories. Save it in the interface; Windows DPAPI protects it for the current user.
 6. Select one or more resources, review the dependency plan, then install.
 
-The catalog initially contains no published releases. The resource release-pipeline pull requests must be merged and preview tags published before any resource can be installed. Use **Sync catalog** in the interface after releases are published.
+The EXE is a Windows x64 desktop application. Its embedded payload is versioned, and each release extracts to its own application directory so an update does not overwrite files used by an already running version. The saved GitHub token remains in the shared current-user credential location and is not bundled into the EXE.
 
+### Development workspace
+
+For contributors running from a cloned source workspace:
+
+1. Install PowerShell 7 or later.
+2. Clone/download the PS Base workspace with its submodules.
+3. Run `Start-PSBase.cmd`.
+4. Follow the server selection and GitHub token steps above.
+
+The catalog initially contains no published releases. The resource release-pipeline pull requests must be merged and preview tags published before any resource can be installed. Use **Sync catalog** in the interface after releases are published.
 
 The installation engine applies an already verified and extracted resource to a selected RedM server.
 
@@ -67,6 +79,7 @@ The desktop interface stores the token as a DPAPI-protected value under the curr
 ## Release and catalog publishing
 
 Each resource repository has a tag-triggered workflow. A release tag must exactly match both `fxmanifest.lua` and `.ps-base-release.json`. The workflow publishes:
+
 - A ZIP with `fxmanifest.lua` at its root.
 - A SHA-256 sidecar for that ZIP.
 - A `ps-base-release.json` metadata asset.

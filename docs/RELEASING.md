@@ -13,7 +13,7 @@ Each resource remains independently versioned and released from its own reposito
 
 The tag, fxmanifest version and metadata version must match exactly. The release workflow rejects mismatches and unsupported statuses.
 
-## Release assets
+## Resource release assets
 
 The workflow packages the resource with `fxmanifest.lua` at the ZIP root and excludes Git metadata, GitHub workflow files, test folders and the PS Base release metadata file. It publishes:
 
@@ -22,6 +22,24 @@ The workflow packages the resource with `fxmanifest.lua` at the ZIP root and exc
 - `ps-base-release.json`
 
 Preview metadata produces a GitHub prerelease. Stable metadata produces a non-prerelease release. A release is immutable from PS Base's perspective: publish a new version rather than replacing an existing version's contents.
+
+## PS Base desktop release
+
+The PS Base repository has a separate **Build PS Base Windows EXE** workflow. It runs for PS Base version tags matching `v*` and can also be run manually to build and smoke-test an artifact.
+
+The workflow:
+
+1. Checks out the PS Base installer source without initializing resource submodules.
+2. Reads the pinned PowerShell version from `build/toolchain.json` and downloads the official Windows x64 portable ZIP.
+3. Verifies the downloaded PowerShell ZIP against the checksum published by the PowerShell project.
+4. Embeds the GUI, CLI, catalog, installer modules and portable PowerShell runtime into a self-extracting launcher.
+5. Publishes `PS-Base.exe` and its SHA-256 checksum as release assets.
+
+The EXE extracts its versioned payload to the current Windows user's Local AppData folder on first launch. It does not install PowerShell system-wide and does not require administrator access. Updating PS Base uses a new release EXE; the previous version's extracted files are kept separate so a running version is not overwritten.
+
+Update `build/toolchain.json` deliberately when adopting a newer PowerShell runtime. Do not silently change the runtime used by an existing PS Base release.
+
+Before publishing a public desktop release, confirm that PS Base's own licensing and all bundled third-party notices permit redistribution. The bundled PowerShell and .NET runtimes retain their upstream licenses.
 
 ## Catalog synchronization
 
