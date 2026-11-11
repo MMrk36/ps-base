@@ -20,6 +20,7 @@ function Get-PSBaseGitHubAssetContent {
         for ($attempt = 0; $attempt -lt 6; $attempt++) {
             $request = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Get, $currentUri)
             try {
+                $request.Headers.UserAgent.ParseAdd('PSBase-CatalogSync/1.0 (+https://github.com/MMrk36/ps-base)')
                 if ($currentUri.Host -ieq 'api.github.com') {
                     $request.Headers.Authorization = [System.Net.Http.Headers.AuthenticationHeaderValue]::new('Bearer', $Token)
                     $request.Headers.Accept.ParseAdd('application/octet-stream')
