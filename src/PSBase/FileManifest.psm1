@@ -179,7 +179,16 @@ function Get-PSBaseUpdatePlan {
 
         $action = 'Keep'
         $reason = 'No change required.'
-        $policy = if ($null -ne $new) { [string]$new.policy } elseif ($null -ne $old) { [string]$old.policy } else { 'managed' }
+        $policy = 'managed'
+        if (($null -ne $old -and $old.policy -eq 'preserve') -or ($null -ne $new -and $new.policy -eq 'preserve')) {
+            $policy = 'preserve'
+        }
+        elseif ($null -ne $new) {
+            $policy = [string]$new.policy
+        }
+        elseif ($null -ne $old) {
+            $policy = [string]$old.policy
+        }
 
         if ($null -eq $old -and $null -ne $new) {
             if ($exists) {
