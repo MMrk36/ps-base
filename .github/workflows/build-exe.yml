@@ -1,0 +1,123 @@
+name: Build PS Base Windows EXE
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout PS Base
+        uses: actions/checkout@v4
+        with:
+          submodules: false
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Resolve release version
+        shell: pwsh
+        run: |
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $version = "${{ github.ref_name }}".TrimStart('v')
+          }
+          else {
+            $version = "0.0.0-dev.${{ github.run_number }}"
+          }
+
+          if ($version -notmatch '^\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$') {
+            throw "Invalid PS Base release version: $version"
+          }
+
+          "APP_VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Download portable PowerShell
+        shell: pwsh
+        run: |
+          $headers = @{ 'User-Agent' = 'PedroScripts-PSBase-Release' }
+          $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/PowerShell/PowerShell/releases/latest' -Headers $headers
+          $asset = $release.assets | Where-Object { $_.name -match '^PowerShell-\d+\.\d+\.\d+-win-x64\.zip$' } | Select-Object -First 1
+          if (-not $asset) {
+            throw 'The latest stable PowerShell release does not contain the expected win-x64 portable ZIP.'
+          }
+
+          New-Item -ItemType Directory -Path ./build/runtime -Force | Out-Null
+          Invoke-WebRequest -Uri $asset.browser_download_url -Headers $headers -OutFile ./build/powershell.zip
+          Expand-Archive -LiteralPath ./build/powershell.zip -DestinationPath ./build/runtime -Force
+          if (-not (Test-Path ./build/runtime/pwsh.exe)) {
+            throw 'The downloaded PowerShell archive did not contain pwsh.exe at its root.'
+          }
+
+          "POWERSHELL_VERSION=$($release.tag_name)" >> $env:GITHUB_ENV
+
+      - name: Prepare embedded application payload
+        shell: pwsh
+        run: |
+          $payload = Join-Path $PWD 'build/payload'
+          New-Item -ItemType Directory -Path $payload -Force | Out-Null
+
+          Copy-Item ./PS-Base.ps1 $payload
+          Copy-Item ./PS-Base-GUI.ps1 $payload
+          Copy-Item ./catalog $payload -Recurse
+          Copy-Item ./src/PSBase (Join-Path $payload 'src/PSBase') -Recurse
+          Copy-Item ./build/runtime (Join-Path $payload 'runtime') -Recurse
+
+          $notices = Join-Path $payload 'THIRD-PARTY-NOTICES.txt'
+          @(
+            'PS Base bundles the portable PowerShell runtime published by Microsoft.'
+            "PowerShell release: $env:POWERSHELL_VERSION"
+            'The PowerShell license and third-party notices are included from the official runtime archive.'
+            ''
+          ) | Set-Content -LiteralPath $notices -Encoding utf8
+
+          foreach ($noticeName in @('LICENSE.txt', 'ThirdPartyNotices.txt')) {
+            $source = Join-Path (Join-Path $PWD 'build/runtime') $noticeName
+            if (Test-Path -LiteralPath $source) {
+              Copy-Item -LiteralPath $source -Destination $payload
+            }
+          }
+
+          Compress-Archive -Path (Join-Path $payload '*') -DestinationPath ./build/psbase-payload.zip -CompressionLevel Optimal
+
+      - name: Publish single-file launcher
+        shell: pwsh
+        run: |
+          dotnet publish ./src/PSBase.Launcher/PSBase.Launcher.csproj --configuration Release --runtime win-x64 --self-contained true --output ./build/publish "-p:Version=$env:APP_VERSION" "-p:InformationalVersion=$env:APP_VERSION" "-p:PayloadPath=$PWD/build/psbase-payload.zip"
+
+          $exe = Join-Path $PWD 'build/publish/PSBase.Launcher.exe'
+          if (-not (Test-Path -LiteralPath $exe)) {
+            throw 'The single-file launcher was not produced.'
+          }
+          Copy-Item -LiteralPath $exe -Destination ./build/PS-Base.exe
+
+      - name: Smoke test the packaged EXE
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath ./build/PS-Base.exe -ArgumentList '--self-test' -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "PS Base EXE smoke test failed with exit code $($process.ExitCode)."
+          }
+
+      - name: Generate SHA-256 checksum
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash ./build/PS-Base.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  PS-Base.exe" | Set-Content ./build/PS-Base.exe.sha256 -Encoding ascii
+
+      - name: Publish GitHub release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          name: PS Base ${{ github.ref_name }}
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            build/PS-Base.exe
+            build/PS-Base.exe.sha256
