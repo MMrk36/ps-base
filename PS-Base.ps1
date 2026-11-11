@@ -23,12 +23,14 @@ $resolverModule = Join-Path $root 'src/PSBase/DependencyResolver.psm1'
 $artifactModule = Join-Path $root 'src/PSBase/Artifact.psm1'
 $installerModule = Join-Path $root 'src/PSBase/Installer.psm1'
 $updateModule = Join-Path $root 'src/PSBase/Update.psm1'
+$fileManifestModule = Join-Path $root 'src/PSBase/FileManifest.psm1'
 
 Import-Module $resolverModule -Force
 Import-Module $catalogModule -Force
 Import-Module $artifactModule -Force
 Import-Module $installerModule -Force
 Import-Module $updateModule -Force
+Import-Module $fileManifestModule -Force
 
 try {
     $catalog = if ([string]::IsNullOrWhiteSpace($CatalogPath)) {
