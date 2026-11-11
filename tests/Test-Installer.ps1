@@ -34,6 +34,15 @@ try {
         Repository = 'MMrk36/ps-test-resource'
     }
 
+    $existingInstallRejected = $false
+    try {
+        Install-PSBaseResource -PlanItem $planItem -StagedPath $stagedPath -ServerRoot $serverRoot -ResourcesPath $resourcesPath -PreservePaths @('config.lua') -Confirm:$false | Out-Null
+    }
+    catch {
+        $existingInstallRejected = $_.Exception.Message -match 'already exists'
+    }
+    if (-not $existingInstallRejected) { throw 'Fresh install did not reject an existing resource directory.' }
+
     $upstreamConfigHash = (Get-FileHash -LiteralPath (Join-Path $stagedPath 'config.lua') -Algorithm SHA256).Hash.ToLowerInvariant()
     $result = Install-PSBaseResource -PlanItem $planItem -StagedPath $stagedPath -ServerRoot $serverRoot -ResourcesPath $resourcesPath -PreservePaths @('config.lua') -ReplaceExisting -Confirm:$false
 
@@ -69,6 +78,7 @@ try {
     }
 
     Write-Host '[PASS] Staged installation replaces resource files.'
+    Write-Host '[PASS] Existing resource directories are protected from accidental fresh-install replacement.'
     Write-Host '[PASS] Existing configuration is preserved.'
     Write-Host '[PASS] Previous resource backup, lockfile and upstream file manifest are created.'
 }
