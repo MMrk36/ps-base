@@ -392,6 +392,15 @@ $script:resourceList.add_ItemCheck({
     }
 })
 
+$script:resourceList.add_SelectedIndexChanged({
+    if ($script:resourceList.SelectedItems.Count -eq 0) { return }
+    $id = [string]$script:resourceList.SelectedItems[0].Tag
+    $resource = Get-PSBaseResource -Catalog $script:catalog -Id $id
+    $versions = @($resource.releases | ForEach-Object { [string]$_.version })
+    $versionText = if ($versions.Count -gt 0) { $versions -join ', ' } else { 'No published releases' }
+    $script:notice.Text = "$($resource.name) | $($resource.status) | Versions: $versionText"
+})
+
 $script:refreshButton = [System.Windows.Forms.Button]::new()
 $script:refreshButton.Text = 'Sync catalog'
 $script:refreshButton.Width = 112
