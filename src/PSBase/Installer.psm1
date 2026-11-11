@@ -53,7 +53,8 @@ function Install-PSBaseResource {
         [Parameter(Mandatory)][string]$StagedPath,
         [Parameter(Mandatory)][string]$ServerRoot,
         [Parameter(Mandatory)][string]$ResourcesPath,
-        [string[]]$PreservePaths = @()
+        [string[]]$PreservePaths = @(),
+        [switch]$ReplaceExisting
     )
 
     if ($PlanItem.Id -notmatch '^[a-z0-9][a-z0-9_-]*$') {
@@ -106,6 +107,10 @@ function Install-PSBaseResource {
     $movedOld = $false
     $manifestWritten = $false
     $releaseManifest = Get-PSBaseFileManifest -Root $StagedPath
+
+    if ($hadPrevious -and -not $ReplaceExisting) {
+        throw "Resource '$($PlanItem.Id)' already exists. Use the update command for PS Base-managed resources; manually installed resources must be moved or backed up before a fresh install."
+    }
 
     if ($hadPrevious -and -not (Test-Path -LiteralPath $targetPath -PathType Container)) {
         throw "Existing resource target is not a directory: $targetPath"
