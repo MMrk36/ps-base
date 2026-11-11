@@ -77,6 +77,25 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "filePolicies": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "default": { "enum": ["managed", "preserve", "replace"] },
+            "rules": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["pattern", "policy"],
+                "properties": {
+                  "pattern": { "type": "string", "minLength": 1 },
+                  "policy": { "enum": ["managed", "preserve", "replace"] }
+                }
+              }
+            }
+          }
         }
       }
     },
