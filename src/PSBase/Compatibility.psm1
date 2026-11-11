@@ -130,6 +130,9 @@ function Test-PSBaseCompatibility {
             if ($null -ne $range) {
                 Test-PSBaseApiRange -ApiVersion $coreApiVersion -Range $range -ResourceId $resourceId | Out-Null
             }
+            else {
+                $warnings.Add("Cannot verify PS Core API compatibility for installed resource '$resourceId': no compatibility metadata is available.")
+            }
         }
     }
 
