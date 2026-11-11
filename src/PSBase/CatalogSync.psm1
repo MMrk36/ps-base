@@ -49,7 +49,10 @@ function Get-PSBaseGitHubAssetContent {
                         $status = [int]$response.StatusCode
                         $hostName = $currentUri.Host
                         $path = $currentUri.AbsolutePath
-                        $requestId = $response.Headers.GetValues('X-GitHub-Request-Id') -join ','
+                        $requestId = ''
+                        if ($response.Headers.Contains('X-GitHub-Request-Id')) {
+                            $requestId = $response.Headers.GetValues('X-GitHub-Request-Id') -join ','
+                        }
                         $detail = ''
 
                         if ($hostName -ieq 'api.github.com') {
