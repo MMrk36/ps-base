@@ -34,6 +34,7 @@ try {
         Repository = 'MMrk36/ps-test-resource'
     }
 
+    $upstreamConfigHash = $upstreamConfigHash
     $result = Install-PSBaseResource -PlanItem $planItem -StagedPath $stagedPath -ServerRoot $serverRoot -ResourcesPath $resourcesPath -PreservePaths @('config.lua') -Confirm:$false
 
     if ((Get-Content -LiteralPath (Join-Path $targetPath 'config.lua') -Raw).Trim() -ne 'user setting') {
