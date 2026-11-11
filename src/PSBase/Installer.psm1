@@ -1,4 +1,6 @@
 Set-StrictMode -Version Latest
+Import-Module (Join-Path $PSScriptRoot 'FileManifest.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'BackupManager.psm1') -Force
 
 function Test-PSBasePathWithin {
     param([string]$Parent, [string]$Child)
@@ -52,7 +54,8 @@ function Install-PSBaseResource {
         [Parameter(Mandatory)][string]$StagedPath,
         [Parameter(Mandatory)][string]$ServerRoot,
         [Parameter(Mandatory)][string]$ResourcesPath,
-        [string[]]$PreservePaths = @()
+        [string[]]$PreservePaths = @(),
+        [switch]$ReplaceExisting
     )
 
     if ($PlanItem.Id -notmatch '^[a-z0-9][a-z0-9_-]*$') {
@@ -95,11 +98,20 @@ function Install-PSBaseResource {
     $lockPath = Join-Path $ServerRoot '.ps-base/lock.json'
     $stateDirectory = Join-Path $ServerRoot '.ps-base'
     $backupDirectory = Join-Path $stateDirectory 'backups'
-    $backupPath = Join-Path $backupDirectory ($PlanItem.Id + '-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + [guid]::NewGuid().ToString('N'))
+    $backupPath = $null
     $previousPath = "$targetPath.psbase-old-$([guid]::NewGuid().ToString('N'))"
     $hadPrevious = Test-Path -LiteralPath $targetPath
+    $manifestPath = Join-Path $stateDirectory ("manifests/" + $PlanItem.Id + ".json")
+    $manifestBackupPath = "$manifestPath.$([guid]::NewGuid().ToString('N')).bak"
+    $hadManifest = Test-Path -LiteralPath $manifestPath -PathType Leaf
     $movedNew = $false
     $movedOld = $false
+    $manifestWritten = $false
+    $releaseManifest = Get-PSBaseFileManifest -Root $StagedPath
+
+    if ($hadPrevious -and -not $ReplaceExisting) {
+        throw "Resource '$($PlanItem.Id)' already exists. Use the update command for PS Base-managed resources; manually installed resources must be moved or backed up before a fresh install."
+    }
 
     if ($hadPrevious -and -not (Test-Path -LiteralPath $targetPath -PathType Container)) {
         throw "Existing resource target is not a directory: $targetPath"
@@ -130,8 +142,8 @@ function Install-PSBaseResource {
                 Copy-Item -LiteralPath $oldConfigPath -Destination $newConfigPath -Recurse -Force
             }
 
-            New-Item -ItemType Directory -Path $backupDirectory -Force | Out-Null
-            Copy-Item -LiteralPath $targetPath -Destination $backupPath -Recurse
+            $backup = New-PSBaseBackup -ResourceId $PlanItem.Id -ServerRoot $ServerRoot -InstalledPath $targetPath -Reason 'install-replace'
+            $backupPath = $backup.BackupPath
             Move-Item -LiteralPath $targetPath -Destination $previousPath
             $movedOld = $true
         }
@@ -139,17 +151,33 @@ function Install-PSBaseResource {
         Move-Item -LiteralPath $StagedPath -Destination $targetPath
         $movedNew = $true
 
+        $apiVersion = if ($null -ne $PlanItem.PSObject.Properties['ApiVersion']) { $PlanItem.ApiVersion } else { $null }
+        $psCoreApi = if ($null -ne $PlanItem.PSObject.Properties['PsCoreApi']) { $PlanItem.PsCoreApi } else { $null }
+        $minimumArtifact = if ($null -ne $PlanItem.PSObject.Properties['MinimumArtifact']) { $PlanItem.MinimumArtifact } else { $null }
         $entry = @{
             version = $PlanItem.Version
             tag = $PlanItem.Tag
             sha256 = $PlanItem.Sha256
             repository = $PlanItem.Repository
+            apiVersion = $apiVersion
+            psCoreApi = $psCoreApi
+            minimumArtifact = $minimumArtifact
             installedPath = [System.IO.Path]::GetRelativePath($ServerRoot, $targetPath)
             installedAt = [DateTime]::UtcNow.ToString('o')
             backupPath = if ($hadPrevious) { [System.IO.Path]::GetRelativePath($ServerRoot, $backupPath) } else { $null }
         }
 
+        if ($hadManifest) {
+            Copy-Item -LiteralPath $manifestPath -Destination $manifestBackupPath
+        }
+
+        Save-PSBaseFileManifest -Manifest $releaseManifest -Path $manifestPath
+        $manifestWritten = $true
         Set-PSBaseLockfile -Path $lockPath -ResourceId $PlanItem.Id -Entry $entry
+
+        if (Test-Path -LiteralPath $manifestBackupPath) {
+            Remove-Item -LiteralPath $manifestBackupPath -Force
+        }
 
         if ($movedOld) {
             Remove-Item -LiteralPath $previousPath -Recurse -Force -ErrorAction SilentlyContinue
@@ -163,6 +191,13 @@ function Install-PSBaseResource {
         }
     }
     catch {
+        if ($manifestWritten) {
+            Remove-Item -LiteralPath $manifestPath -Force -ErrorAction SilentlyContinue
+        }
+        if (Test-Path -LiteralPath $manifestBackupPath -PathType Leaf) {
+            Move-Item -LiteralPath $manifestBackupPath -Destination $manifestPath -Force
+        }
+
         if ($movedNew -and (Test-Path -LiteralPath $targetPath)) {
             Remove-Item -LiteralPath $targetPath -Recurse -Force -ErrorAction SilentlyContinue
         }
@@ -172,6 +207,9 @@ function Install-PSBaseResource {
         }
 
         throw "Installation of '$($PlanItem.Id)' failed and was rolled back where possible: $($_.Exception.Message)"
+    }
+    finally {
+        Remove-Item -LiteralPath $manifestBackupPath -Force -ErrorAction SilentlyContinue
     }
 }
 

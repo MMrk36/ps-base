@@ -23,30 +23,30 @@ This roadmap tracks implementation status. A feature is marked complete only whe
 - [x] Explicit configuration preservation paths.
 - [x] Per-resource backup before replacement.
 - [x] Installed resource lockfile.
-- [ ] Register verified release artifacts for each resource.
+- [ ] Publish and register the first verified preview release artifacts for each resource.
 - [ ] Test installation against a real RedM server directory.
 
 ## Resource management
 
-- [ ] Installed resource status and integrity report.
-- [ ] Backup listing and restore command.
-- [ ] Individual resource update workflow.
-- [ ] Multi-resource operation recovery.
-- [ ] Dependency and compatibility upgrade checks.
-- [ ] Profile catalog with pinned resource versions.
-- [ ] Safe uninstall with backup and confirmation.
+- [x] Installed resource status and file integrity report.
+- [x] Backup listing and restore with resource, manifest and lockfile metadata snapshots.
+- [x] Individual resource update workflow with SHA-256 file baselines and local-change protection.
+- [x] Journaled multi-resource update transactions with reverse-order rollback and interrupted-operation recovery.
+- [x] PS Core API range and minimum server artifact compatibility checks, including installed dependents during core upgrades.
+- [x] Profile catalog with exact resource-version pins and dependency-aware resolution.
+- [x] Safe uninstall with backup, confirmation and preservation of local files.
 
 ## Distribution and platform expansion
 
-- [ ] Release metadata refresh from GitHub.
-- [ ] Private repository authentication.
+- [x] Authenticated release metadata refresh from private GitHub repositories with checksum sidecar validation.
+- [x] Private GitHub release downloads with current-user DPAPI credential storage and environment-token support.
 - [ ] Linux support.
 - [ ] Third-party resource sources.
-- [ ] Optional graphical interface.
+- [x] Windows desktop interface for catalog browsing, planning, install/update, status, backups, restore, uninstall and recovery.
 
 ## Release readiness
 
 - [ ] Security review of filesystem and archive handling.
 - [ ] End-to-end installation and update tests.
-- [ ] User documentation and troubleshooting guide.
+- [x] User documentation for installation, authentication, catalog synchronization and resource release publishing.
 - [ ] Versioned PS Base releases and changelog.

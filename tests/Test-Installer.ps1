@@ -34,7 +34,17 @@ try {
         Repository = 'MMrk36/ps-test-resource'
     }
 
-    $result = Install-PSBaseResource -PlanItem $planItem -StagedPath $stagedPath -ServerRoot $serverRoot -ResourcesPath $resourcesPath -PreservePaths @('config.lua') -Confirm:$false
+    $existingInstallRejected = $false
+    try {
+        Install-PSBaseResource -PlanItem $planItem -StagedPath $stagedPath -ServerRoot $serverRoot -ResourcesPath $resourcesPath -PreservePaths @('config.lua') -Confirm:$false | Out-Null
+    }
+    catch {
+        $existingInstallRejected = $_.Exception.Message -match 'already exists'
+    }
+    if (-not $existingInstallRejected) { throw 'Fresh install did not reject an existing resource directory.' }
+
+    $upstreamConfigHash = (Get-FileHash -LiteralPath (Join-Path $stagedPath 'config.lua') -Algorithm SHA256).Hash.ToLowerInvariant()
+    $result = Install-PSBaseResource -PlanItem $planItem -StagedPath $stagedPath -ServerRoot $serverRoot -ResourcesPath $resourcesPath -PreservePaths @('config.lua') -ReplaceExisting -Confirm:$false
 
     if ((Get-Content -LiteralPath (Join-Path $targetPath 'config.lua') -Raw).Trim() -ne 'user setting') {
         throw 'Existing user configuration was not preserved.'
@@ -58,9 +68,19 @@ try {
         throw 'Installed resource version was not recorded in the lockfile.'
     }
 
+    $manifestPath = Join-Path $serverRoot '.ps-base/manifests/ps-test-resource.json'
+    if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+        throw 'The installed release file manifest was not recorded.'
+    }
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+    if ($manifest.files.'config.lua'.sha256 -ne $upstreamConfigHash) {
+        throw 'The manifest did not retain the original upstream configuration baseline.'
+    }
+
     Write-Host '[PASS] Staged installation replaces resource files.'
+    Write-Host '[PASS] Existing resource directories are protected from accidental fresh-install replacement.'
     Write-Host '[PASS] Existing configuration is preserved.'
-    Write-Host '[PASS] Previous resource backup and lockfile are created.'
+    Write-Host '[PASS] Previous resource backup, lockfile and upstream file manifest are created.'
 }
 finally {
     Remove-Item -LiteralPath $testRoot -Recurse -Force -ErrorAction SilentlyContinue

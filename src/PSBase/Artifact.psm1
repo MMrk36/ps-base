@@ -1,4 +1,5 @@
 Set-StrictMode -Version Latest
+Import-Module (Join-Path $PSScriptRoot 'Auth.psm1') -Force
 
 function Test-PSBaseArtifactChecksum {
     [CmdletBinding()]
@@ -30,8 +31,9 @@ function Get-PSBaseArtifact {
         [Parameter(Mandatory)][string]$DestinationDirectory
     )
 
-    if ($Release.url -notmatch '^https://') {
-        throw 'Artifact downloads require an HTTPS URL.'
+    $uri = $null
+    if (-not [uri]::TryCreate([string]$Release.url, [System.UriKind]::Absolute, [ref]$uri) -or $uri.Scheme -ne 'https') {
+        throw 'Artifact downloads require a valid HTTPS URL.'
     }
 
     if ([string]::IsNullOrWhiteSpace($Release.asset) -or
@@ -45,7 +47,91 @@ function Get-PSBaseArtifact {
     }
 
     $destination = Join-Path $DestinationDirectory $Release.asset
-    Invoke-WebRequest -Uri $Release.url -OutFile $destination -MaximumRedirection 5
+    $token = $null
+    if ($uri.Host -ieq 'api.github.com') {
+        $token = Get-PSBaseGitHubToken
+        if ([string]::IsNullOrWhiteSpace($token)) {
+            throw 'This release is hosted in a private GitHub repository. Save a GitHub token with read access to the Pedro Scripts repositories in PS Base settings.'
+        }
+    }
+
+    $handler = [System.Net.Http.HttpClientHandler]::new()
+    $handler.AllowAutoRedirect = $false
+    $client = [System.Net.Http.HttpClient]::new($handler)
+    $currentUri = $uri
+    $downloaded = $false
+
+    try {
+        for ($attempt = 0; $attempt -lt 6; $attempt++) {
+            $request = [System.Net.Http.HttpRequestMessage]::new([System.Net.Http.HttpMethod]::Get, $currentUri)
+            try {
+                if ($currentUri.Host -ieq 'api.github.com' -and -not [string]::IsNullOrWhiteSpace($token)) {
+                    $request.Headers.Authorization = [System.Net.Http.Headers.AuthenticationHeaderValue]::new('Bearer', $token)
+                    $request.Headers.Accept.ParseAdd('application/octet-stream')
+                    $request.Headers.Add('X-GitHub-Api-Version', '2022-11-28')
+                }
+
+                $response = $client.SendAsync($request, [System.Net.Http.HttpCompletionOption]::ResponseHeadersRead).GetAwaiter().GetResult()
+                try {
+                    if ($response.StatusCode -in @(
+                        [System.Net.HttpStatusCode]::MovedPermanently,
+                        [System.Net.HttpStatusCode]::Found,
+                        [System.Net.HttpStatusCode]::SeeOther,
+                        [System.Net.HttpStatusCode]::TemporaryRedirect,
+                        [System.Net.HttpStatusCode]::PermanentRedirect
+                    )) {
+                        $location = $response.Headers.Location
+                        if ($null -eq $location) { throw 'GitHub returned a redirect without a destination.' }
+                        $nextUri = if ($location.IsAbsoluteUri) { $location } else { [uri]::new($currentUri, $location) }
+                        if ($nextUri.Scheme -ne 'https') { throw 'Artifact redirect attempted to leave HTTPS.' }
+
+                        $allowedHosts = @('api.github.com', 'github.com', 'release-assets.githubusercontent.com', 'objects.githubusercontent.com')
+                        if ($nextUri.Host -notin $allowedHosts) {
+                            throw "Artifact redirect to untrusted host '$($nextUri.Host)' was blocked."
+                        }
+
+                        $currentUri = $nextUri
+                        continue
+                    }
+
+                    if (-not $response.IsSuccessStatusCode) {
+                        throw "Artifact download failed with HTTP $([int]$response.StatusCode) ($($response.ReasonPhrase)). Check repository access and the release asset URL."
+                    }
+
+                    $inputStream = $response.Content.ReadAsStreamAsync().GetAwaiter().GetResult()
+                    $outputStream = [System.IO.File]::Open($destination, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+                    try {
+                        $inputStream.CopyTo($outputStream)
+                    }
+                    finally {
+                        $outputStream.Dispose()
+                        $inputStream.Dispose()
+                    }
+                    $downloaded = $true
+                    break
+                }
+                finally {
+                    $response.Dispose()
+                }
+            }
+            finally {
+                $request.Dispose()
+            }
+        }
+
+        if (-not $downloaded) {
+            throw 'Artifact download exceeded the redirect limit.'
+        }
+    }
+    catch {
+        Remove-Item -LiteralPath $destination -Force -ErrorAction SilentlyContinue
+        throw
+    }
+    finally {
+        $client.Dispose()
+        $handler.Dispose()
+        $token = $null
+    }
 
     try {
         Test-PSBaseArtifactChecksum -Path $destination -Sha256 $Release.sha256 | Out-Null

@@ -20,6 +20,14 @@ jobs:
         shell: pwsh
         run: ./tests/Test-Catalog.ps1
 
+      - name: Test exact-version installation profiles
+        shell: pwsh
+        run: ./tests/Test-Profiles.ps1
+
+      - name: Test PS Core API and server artifact compatibility
+        shell: pwsh
+        run: ./tests/Test-Compatibility.ps1
+
       - name: Test artifact integrity and archive safety
         shell: pwsh
         run: ./tests/Test-Artifact.ps1
@@ -28,6 +36,36 @@ jobs:
         shell: pwsh
         run: ./tests/Test-Installer.ps1
 
-      - name: Smoke test CLI catalog listing
+      - name: Test safe update planning and manifests
         shell: pwsh
-        run: ./PS-Base.ps1 list
+        run: ./tests/Test-FileManifest.ps1
+
+      - name: Test transactional updates and local file protection
+        shell: pwsh
+        run: ./tests/Test-Update.ps1
+
+      - name: Test multi-resource transactions and crash recovery
+        shell: pwsh
+        run: ./tests/Test-Transaction.ps1
+
+      - name: Test resource status and safe uninstall
+        shell: pwsh
+        run: ./tests/Test-ResourceManagement.ps1
+
+      - name: Test GitHub release catalog metadata
+        shell: pwsh
+        run: ./tests/Test-CatalogSync.ps1
+
+      - name: Test protected GitHub credentials
+        shell: pwsh
+        run: ./tests/Test-Auth.ps1
+
+      - name: Validate desktop interface and launcher
+        shell: pwsh
+        run: ./tests/Test-GUI.ps1
+
+      - name: Smoke test CLI catalog listing and profiles
+        shell: pwsh
+        run: |
+          ./PS-Base.ps1 list
+          ./PS-Base.ps1 profiles
