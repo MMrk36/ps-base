@@ -151,14 +151,17 @@ function Install-PSBaseResource {
         Move-Item -LiteralPath $StagedPath -Destination $targetPath
         $movedNew = $true
 
+        $apiVersion = if ($null -ne $PlanItem.PSObject.Properties['ApiVersion']) { $PlanItem.ApiVersion } else { $null }
+        $psCoreApi = if ($null -ne $PlanItem.PSObject.Properties['PsCoreApi']) { $PlanItem.PsCoreApi } else { $null }
+        $minimumArtifact = if ($null -ne $PlanItem.PSObject.Properties['MinimumArtifact']) { $PlanItem.MinimumArtifact } else { $null }
         $entry = @{
             version = $PlanItem.Version
             tag = $PlanItem.Tag
             sha256 = $PlanItem.Sha256
             repository = $PlanItem.Repository
-            apiVersion = $PlanItem.ApiVersion
-            psCoreApi = $PlanItem.PsCoreApi
-            minimumArtifact = $PlanItem.MinimumArtifact
+            apiVersion = $apiVersion
+            psCoreApi = $psCoreApi
+            minimumArtifact = $minimumArtifact
             installedPath = [System.IO.Path]::GetRelativePath($ServerRoot, $targetPath)
             installedAt = [DateTime]::UtcNow.ToString('o')
             backupPath = if ($hadPrevious) { [System.IO.Path]::GetRelativePath($ServerRoot, $backupPath) } else { $null }
