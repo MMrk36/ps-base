@@ -52,7 +52,8 @@ try {
     if ($byPath['removed.lua'].Action -ne 'Delete') { throw 'Unmodified upstream-deleted file was not scheduled for deletion.' }
     if ($byPath['preserved.lua'].Action -ne 'Keep') { throw 'Preserve policy was not honored.' }
     if ($byPath['new.lua'].Action -ne 'Add') { throw 'New upstream file was not scheduled for addition.' }
-    if ($byPath['user-created.lua'].Action -ne 'Keep') { throw 'Untracked user file was not protected.' }
+    if ($byPath.ContainsKey('user-created.lua')) { throw 'An untracked user file was incorrectly added to the managed update plan.' }
+    if ((Get-Content -LiteralPath (Join-Path $installed 'user-created.lua') -Raw) -ne 'user file') { throw 'An untracked user file was changed.' }
 
     $manifestPath = Join-Path $testRoot '.ps-base/manifests/test.json'
     Save-PSBaseFileManifest -Manifest $new -Path $manifestPath
