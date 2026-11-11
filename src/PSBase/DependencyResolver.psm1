@@ -6,7 +6,8 @@ function Resolve-PSBaseInstallPlan {
     param(
         [Parameter(Mandatory)]$Catalog,
         [Parameter(Mandatory)][string[]]$ResourceIds,
-        [string]$Version
+        [string]$Version,
+        [System.Collections.IDictionary]$VersionOverrides
     )
 
     $ordered = [System.Collections.Generic.List[object]]::new()
@@ -21,6 +22,9 @@ function Resolve-PSBaseInstallPlan {
         )
 
         $resource = Get-PSBaseResource -Catalog $Catalog -Id $Id
+        if ([string]::IsNullOrWhiteSpace($RequestedVersion) -and $null -ne $VersionOverrides -and $VersionOverrides.Contains($Id)) {
+            $RequestedVersion = [string]$VersionOverrides[$Id]
+        }
         $release = Get-PSBaseRelease -Resource $resource -Version $RequestedVersion
         $key = $resource.id.ToLowerInvariant()
 
@@ -82,4 +86,39 @@ function Resolve-PSBaseInstallPlan {
     return $ordered.ToArray()
 }
 
-Export-ModuleMember -Function Resolve-PSBaseInstallPlan
+
+function Resolve-PSBaseProfilePlan {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Catalog,
+        [Parameter(Mandatory)][string]$ProfileId
+    )
+
+    $profile = Get-PSBaseProfile -Catalog $Catalog -Id $ProfileId
+    $overrides = @{}
+    $resourceIds = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($item in $profile.resources) {
+        if ([string]::IsNullOrWhiteSpace([string]$item.id) -or
+            [string]::IsNullOrWhiteSpace([string]$item.version)) {
+            throw "Profile '$ProfileId' contains a resource without an exact version pin."
+        }
+
+        if ($overrides.ContainsKey([string]$item.id) -and $overrides[[string]$item.id] -ne [string]$item.version) {
+            throw "Profile '$ProfileId' pins resource '$($item.id)' to conflicting versions."
+        }
+
+        $overrides[[string]$item.id] = [string]$item.version
+        if (-not $resourceIds.Contains([string]$item.id)) {
+            $resourceIds.Add([string]$item.id)
+        }
+    }
+
+    if ($resourceIds.Count -eq 0) {
+        throw "Profile '$ProfileId' does not contain any resources."
+    }
+
+    return Resolve-PSBaseInstallPlan -Catalog $Catalog -ResourceIds $resourceIds.ToArray() -VersionOverrides $overrides
+}
+
+Export-ModuleMember -Function Resolve-PSBaseInstallPlan, Resolve-PSBaseProfilePlan
