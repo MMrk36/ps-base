@@ -30,7 +30,7 @@ The plan command is read-only. It does not download, extract, install or modify 
 pwsh -File ./PS-Base.ps1 update -Resource ps-core -ServerPath "D:/RedM/server"
 ```
 
-The update command resolves the selected release, downloads and verifies the artifact, and prints a file-level change plan before making changes. Until multi-resource transaction recovery is implemented, it deliberately accepts only a plan containing one resource. It requires an existing PS Base manifest; older/manual installations without a baseline are rejected rather than updated destructively. Local modifications, untracked files, local deletions and preserve-policy files are retained. A full resource backup is created before changes are applied.
+The update command resolves the selected resources and dependencies, downloads and verifies every artifact, and prints a file-level change plan before making changes. Updates run as a journaled transaction: PS Base records a backup before applying each resource, and if a later resource fails it restores earlier resources in reverse order. Interrupted transactions can be recovered explicitly. It requires an existing PS Base manifest; older/manual installations without a baseline are rejected rather than updated destructively. Local modifications, untracked files, local deletions and preserve-policy files are retained. A full resource backup is created before changes are applied.
 
 Use `-WhatIf` to skip applying the prepared update. Database migrations and server.cfg changes are never performed.
 
@@ -58,6 +58,15 @@ pwsh -File ./PS-Base.ps1 restore -BackupId "ps-core-update-20261111-120000-123-<
 ```
 
 Backups created by PS Base include the resource files and the matching manifest/lockfile metadata. Restore creates a safety backup of the current resource before replacing it. Use the exact backup identifier from the listing; restore never accepts an arbitrary filesystem path.
+
+### Inspect and recover update transactions
+
+```powershell
+pwsh -File ./PS-Base.ps1 transactions -ServerPath "D:/RedM/server"
+pwsh -File ./PS-Base.ps1 recover -TransactionId "<transaction-id>" -ServerPath "D:/RedM/server"
+```
+
+Transaction journals are stored under `.ps-base/transactions/`. Recovery restores resources that were prepared or updated before an interrupted transaction. Completed and already rolled-back transactions cannot be recovered again.
 
 ### Interactive entry point
 
