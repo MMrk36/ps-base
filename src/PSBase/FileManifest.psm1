@@ -26,10 +26,13 @@ function Get-PSBaseFileManifest {
     $rootPath = [System.IO.Path]::GetFullPath($Root)
     $files = [ordered]@{}
 
-    foreach ($file in Get-ChildItem -LiteralPath $rootPath -File -Recurse -Force) {
-        if (($file.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
-            throw "Resource contains a reparse point or symbolic link: $($file.FullName)"
+    foreach ($entry in Get-ChildItem -LiteralPath $rootPath -Recurse -Force) {
+        if (($entry.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Resource contains a reparse point or symbolic link: $($entry.FullName)"
         }
+    }
+
+    foreach ($file in Get-ChildItem -LiteralPath $rootPath -File -Recurse -Force) {
 
         $relative = Get-PSBaseRelativeFilePath -Root $rootPath -Path $file.FullName
         $policy = 'managed'
@@ -155,6 +158,12 @@ function Get-PSBaseUpdatePlan {
     }
 
     $root = [System.IO.Path]::GetFullPath($InstalledPath)
+    foreach ($entry in Get-ChildItem -LiteralPath $root -Recurse -Force) {
+        if (($entry.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+            throw "Installed resource contains a reparse point or symbolic link: $($entry.FullName)"
+        }
+    }
+
     $paths = [System.Collections.Generic.SortedSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     foreach ($path in $PreviousManifest.files.Keys) { [void]$paths.Add([string]$path) }
     foreach ($path in $NewManifest.files.Keys) { [void]$paths.Add([string]$path) }
