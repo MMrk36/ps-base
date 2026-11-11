@@ -18,7 +18,7 @@ Submodule commits are development references, not production release versions. U
 
 The catalog describes resources that PS Base knows about. It records repository identity, display metadata, installation status and published release information.
 
-The catalog must not invent versions, checksums or compatibility claims. A resource is installable only when a published release artifact and its SHA-256 checksum are recorded.
+The catalog must not invent versions, checksums or compatibility claims. A resource is installable only when a published release artifact and its SHA-256 checksum are recorded. Tag-triggered workflows package each resource repository; an authenticated catalog-sync process reads release metadata and checksum sidecars from those repositories.
 
 ### 3. Installer
 
@@ -120,7 +120,7 @@ The installer should be divided into small components with stable interfaces:
 - Validator: inspect server paths and installed resources.
 - CLI: expose commands without owning business logic.
 
-Future UI, Linux support, alternative release providers and third-party resource sources should be added as separate implementations rather than rewriting the installation engine.
+The Windows desktop UI is a presentation layer over the same CLI and PowerShell modules. Linux support, alternative release providers and third-party resource sources should be added as separate implementations rather than rewriting the installation engine.
 
 ## Initial platform
 
