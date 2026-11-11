@@ -24,6 +24,16 @@ The resolver accepts exact dependency pins in the form `resource-id@1.2.3`. An u
 
 The plan command is read-only. It does not download, extract, install or modify server files.
 
+### Update installed resources
+
+```powershell
+pwsh -File ./PS-Base.ps1 update -Resource ps-core -ServerPath "D:/RedM/server"
+```
+
+The update command resolves the selected release and dependencies, downloads and verifies every artifact, and prints a file-level change plan before making changes. It requires an existing PS Base manifest; older/manual installations without a baseline are rejected rather than updated destructively. Local modifications, untracked files, local deletions and preserve-policy files are retained. A full resource backup is created before changes are applied.
+
+Use `-WhatIf` to skip applying the prepared update. Database migrations and server.cfg changes are never performed.
+
 ### Interactive entry point
 
 Running the script without a command opens the initial menu. The menu currently exposes catalog listing and the planning command guidance. A full interactive installation flow will be added after the release and installation engine is implemented.
