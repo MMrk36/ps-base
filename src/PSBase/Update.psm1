@@ -1,5 +1,6 @@
 Set-StrictMode -Version Latest
 Import-Module (Join-Path $PSScriptRoot 'FileManifest.psm1') -Force
+Import-Module (Join-Path $PSScriptRoot 'BackupManager.psm1') -Force
 
 function Set-PSBaseUpdateLockEntry {
     param([string]$Path, [string]$ResourceId, $PlanItem, [string]$BackupPath)
@@ -84,9 +85,7 @@ function Invoke-PSBaseResourceUpdate {
         return $null
     }
 
-    $backupDirectory = Join-Path $state 'backups'
-    New-Item -ItemType Directory -Path $backupDirectory -Force | Out-Null
-    $backupPath = Join-Path $backupDirectory ($PlanItem.Id + '-update-' + (Get-Date -Format 'yyyyMMdd-HHmmss-fff') + '-' + [guid]::NewGuid().ToString('N'))
+    $backupPath = $null
     $manifestBackup = "$manifestPath.$([guid]::NewGuid().ToString('N')).bak"
     $lockBackup = "$lockPath.$([guid]::NewGuid().ToString('N')).bak"
     $targetChanged = $false
@@ -94,7 +93,8 @@ function Invoke-PSBaseResourceUpdate {
     $lockChanged = $false
 
     try {
-        Copy-Item -LiteralPath $target -Destination $backupPath -Recurse
+        $backup = New-PSBaseBackup -ResourceId $PlanItem.Id -ServerRoot $server -InstalledPath $target -Reason 'update'
+        $backupPath = $backup.BackupPath
         if (Test-Path -LiteralPath $manifestPath -PathType Leaf) { Copy-Item $manifestPath $manifestBackup }
         if (Test-Path -LiteralPath $lockPath -PathType Leaf) { Copy-Item $lockPath $lockBackup }
 
