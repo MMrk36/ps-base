@@ -145,6 +145,9 @@ try {
             $resourcesRoot = if ([string]::IsNullOrWhiteSpace($ResourcesPath)) { Join-Path $serverRoot 'resources' } else { [System.IO.Path]::GetFullPath($ResourcesPath) }
             if (-not (Test-Path -LiteralPath $resourcesRoot -PathType Container)) { throw "Resources directory does not exist: $resourcesRoot" }
             $plan = @(Resolve-PSBaseInstallPlan -Catalog $catalog -ResourceIds $Resource -Version $Version)
+            if ($plan.Count -gt 1) {
+                throw 'Multi-resource update transactions are not available yet. Update one resource at a time; no files have been changed.'
+            }
             $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("ps-base-update-" + [guid]::NewGuid().ToString('N'))
             $prepared = [System.Collections.Generic.List[object]]::new()
 
