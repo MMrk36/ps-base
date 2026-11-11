@@ -90,128 +90,18 @@ function Get-PSBaseCatalog {
                 }
             }
 
-            if ($profile.id -notmatch '^[a-z0-9]+(?:-[a-z0-9]+)* {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]$Catalog,
-        [Parameter(Mandatory)][string]$Id
-    )
-
-    $resource = @($Catalog.resources | Where-Object { $_.id -ieq $Id }) | Select-Object -First 1
-    if ($null -eq $resource) {
-        throw "Resource '$Id' is not present in the catalog."
-    }
-
-    return $resource
-}
-
-function Get-PSBaseRelease {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]$Resource,
-        [string]$Version
-    )
-
-    if (-not $Resource.installable) {
-        throw "Resource '$($Resource.id)' is not installable yet. It is currently marked '$($Resource.status)'."
-    }
-
-    $releases = @($Resource.releases)
-
-    if (-not [string]::IsNullOrWhiteSpace($Version)) {
-        $release = $releases | Where-Object { $_.version -eq $Version } | Select-Object -First 1
-        if ($null -eq $release) {
-            throw "Version '$Version' is not published for '$($Resource.id)'."
-        }
-
-        return $release
-    }
-
-    $stable = foreach ($release in $releases) {
-        if ($release.version -match '^(\d+)\.(\d+)\.(\d+)$') {
-            [pscustomobject]@{
-                Release = $release
-                Parsed = [version]::new([int]$Matches[1], [int]$Matches[2], [int]$Matches[3])
-            }
-        }
-    }
-
-    $selected = $stable | Sort-Object -Property Parsed -Descending | Select-Object -First 1
-    if ($null -eq $selected) {
-        throw "No stable semantic version is available for '$($Resource.id)'. Specify a published version explicitly."
-    }
-
-    return $selected.Release
-}
-
-Export-ModuleMember -Function Get-PSBaseCatalog, Get-PSBaseProfile, Get-PSBaseResource, Get-PSBaseRelease
- -or -not $profileIds.Add($profile.id)) {
+            if ($profile.id -notmatch '^[a-z0-9]+(?:-[a-z0-9]+)*$' -or -not $profileIds.Add($profile.id)) {
                 throw "Catalog contains an invalid or duplicate profile ID '$($profile.id)'."
             }
-            if ($profile.resources -isnot [System.Array]) {
-                throw "Profile '$($profile.id)' resources must be an array."
+            if ($profile.resources -isnot [System.Array] -or $profile.resources.Count -eq 0) {
+                throw "Profile '$($profile.id)' must contain at least one resource."
             }
 
             $profileResources = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
             foreach ($item in $profile.resources) {
                 if ([string]::IsNullOrWhiteSpace([string]$item.id) -or
                     [string]::IsNullOrWhiteSpace([string]$item.version) -or
-                    $item.version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)? {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]$Catalog,
-        [Parameter(Mandatory)][string]$Id
-    )
-
-    $resource = @($Catalog.resources | Where-Object { $_.id -ieq $Id }) | Select-Object -First 1
-    if ($null -eq $resource) {
-        throw "Resource '$Id' is not present in the catalog."
-    }
-
-    return $resource
-}
-
-function Get-PSBaseRelease {
-    [CmdletBinding()]
-    param(
-        [Parameter(Mandatory)]$Resource,
-        [string]$Version
-    )
-
-    if (-not $Resource.installable) {
-        throw "Resource '$($Resource.id)' is not installable yet. It is currently marked '$($Resource.status)'."
-    }
-
-    $releases = @($Resource.releases)
-
-    if (-not [string]::IsNullOrWhiteSpace($Version)) {
-        $release = $releases | Where-Object { $_.version -eq $Version } | Select-Object -First 1
-        if ($null -eq $release) {
-            throw "Version '$Version' is not published for '$($Resource.id)'."
-        }
-
-        return $release
-    }
-
-    $stable = foreach ($release in $releases) {
-        if ($release.version -match '^(\d+)\.(\d+)\.(\d+)$') {
-            [pscustomobject]@{
-                Release = $release
-                Parsed = [version]::new([int]$Matches[1], [int]$Matches[2], [int]$Matches[3])
-            }
-        }
-    }
-
-    $selected = $stable | Sort-Object -Property Parsed -Descending | Select-Object -First 1
-    if ($null -eq $selected) {
-        throw "No stable semantic version is available for '$($Resource.id)'. Specify a published version explicitly."
-    }
-
-    return $selected.Release
-}
-
-Export-ModuleMember -Function Get-PSBaseCatalog, Get-PSBaseResource, Get-PSBaseRelease
-) {
+                    $item.version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
                     throw "Profile '$($profile.id)' contains a resource without a valid exact version pin."
                 }
                 if (-not $profileResources.Add([string]$item.id)) {
@@ -223,7 +113,7 @@ Export-ModuleMember -Function Get-PSBaseCatalog, Get-PSBaseResource, Get-PSBaseR
                     throw "Profile '$($profile.id)' references unknown resource '$($item.id)'."
                 }
                 if (-not $profileResource.installable -or
-                    -not (@($profileResource.releases | Where-Object { $_.version -eq $item.version }).Count -gt 0)) {
+                    @($profileResource.releases | Where-Object { $_.version -eq $item.version }).Count -eq 0) {
                     throw "Profile '$($profile.id)' references unpublished version '$($item.id)@$($item.version)'."
                 }
             }
@@ -306,4 +196,4 @@ function Get-PSBaseRelease {
     return $selected.Release
 }
 
-Export-ModuleMember -Function Get-PSBaseCatalog, Get-PSBaseResource, Get-PSBaseRelease
+Export-ModuleMember -Function Get-PSBaseCatalog, Get-PSBaseProfile, Get-PSBaseResource, Get-PSBaseRelease
