@@ -126,7 +126,7 @@ $profilePanel.Controls.Add($versionLabel)
 
 $script:versionBox = [System.Windows.Forms.TextBox]::new()
 $script:versionBox.Width = 105
-$script:versionBox.PlaceholderText = 'Latest stable'
+$script:versionBox.PlaceholderText = 'Exact preview version'
 $profilePanel.Controls.Add($script:versionBox)
 
 $artifactLabel = [System.Windows.Forms.Label]::new()
