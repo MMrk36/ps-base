@@ -102,7 +102,7 @@ Rollback restores resource files from a selected backup. It does not automatical
 - Do not invoke arbitrary commands or scripts from downloaded artifacts.
 - Do not delete unrelated files or directories.
 - Never print access tokens or credentials in logs.
-- Store authentication outside the repository and lockfile.
+- Store authentication outside the repository and lockfile. On Windows, saved GitHub credentials are protected with the current user's DPAPI; an environment variable can be used for automation.
 - Require explicit confirmation for destructive or irreversible operations.
 
 ## Extensibility
