@@ -24,6 +24,10 @@ jobs:
         shell: pwsh
         run: ./tests/Test-Profiles.ps1
 
+      - name: Test PS Core API and server artifact compatibility
+        shell: pwsh
+        run: ./tests/Test-Compatibility.ps1
+
       - name: Test artifact integrity and archive safety
         shell: pwsh
         run: ./tests/Test-Artifact.ps1
