@@ -110,7 +110,7 @@ function Invoke-PSBaseResourceUninstall {
         throw 'The installed resource directory is missing or outside the server root.'
     }
 
-    if (($installed.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
+    if (((Get-Item -LiteralPath $installed).Attributes -band [System.IO.FileAttributes]::ReparsePoint) -ne 0) {
         throw 'The installed resource directory cannot be a symbolic link or reparse point.'
     }
     foreach ($item in Get-ChildItem -LiteralPath $installed -Recurse -Force) {
