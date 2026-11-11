@@ -72,6 +72,9 @@ function Resolve-PSBaseInstallPlan {
             Url = $release.url
             Sha256 = $release.sha256.ToLowerInvariant()
             Repository = $resource.repository
+            ApiVersion = if ($null -ne $release.PSObject.Properties['apiVersion']) { $release.apiVersion } else { $null }
+            PsCoreApi = if ($null -ne $release.PSObject.Properties['psCoreApi']) { $release.psCoreApi } else { $null }
+            MinimumArtifact = if ($null -ne $release.PSObject.Properties['minimumArtifact']) { $release.minimumArtifact } else { $null }
         })
     }
 
