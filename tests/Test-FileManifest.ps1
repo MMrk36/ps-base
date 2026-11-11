@@ -24,16 +24,6 @@ try {
     Set-Content -LiteralPath (Join-Path $release 'preserved.lua') -Value 'default config' -NoNewline
     Set-Content -LiteralPath (Join-Path $release 'new.lua') -Value 'new upstream file' -NoNewline
 
-    $old = Get-PSBaseFileManifest -Root $installed
-    $old.files['modified.lua'].sha256 = (Get-FileHash (Join-Path $installed 'modified.lua') -Algorithm SHA256).Hash.ToLowerInvariant()
-    $old.files['preserved.lua'].policy = 'preserve'
-    $old.files['removed.lua'].policy = 'managed'
-    $old.files.Remove('user-created.lua')
-    $old.files.Remove('unchanged.lua')
-    $old.files.Remove('modified.lua')
-    $old.files.Remove('preserved.lua')
-    $old.files.Remove('removed.lua')
-
     $old = [ordered]@{
         schemaVersion = 1
         generatedAt = [DateTime]::UtcNow.ToString('o')
@@ -41,10 +31,13 @@ try {
     }
     foreach ($name in @('unchanged.lua', 'modified.lua', 'removed.lua', 'preserved.lua')) {
         $path = Join-Path $installed $name
+        $baselineContent = if ($name -eq 'modified.lua') { 'original upstream' } elseif ($name -eq 'unchanged.lua') { 'same' } elseif ($name -eq 'removed.lua') { 'remove me' } else { 'default config' }
+        $baselineFile = Join-Path $testRoot ("baseline-" + $name)
+        Set-Content -LiteralPath $baselineFile -Value $baselineContent -NoNewline
         $policy = if ($name -eq 'preserved.lua') { 'preserve' } else { 'managed' }
         $old.files[$name] = @{
-            sha256 = (Get-FileHash $path -Algorithm SHA256).Hash.ToLowerInvariant()
-            size = (Get-Item $path).Length
+            sha256 = (Get-FileHash $baselineFile -Algorithm SHA256).Hash.ToLowerInvariant()
+            size = (Get-Item $baselineFile).Length
             policy = $policy
         }
     }
