@@ -6,7 +6,7 @@ It is designed to install and manage independently maintained RedM resources. Ea
 
 ## Current status
 
-The repository currently acts as a development workspace using Git submodules. The installer is under development.
+The repository is a development workspace using Git submodules. The Windows PowerShell 7 installer and resource-management commands are implemented and undergoing validation; the official resource repositories do not yet have published release artifacts.
 
 - Development workspace: Git submodules pinned by the PS Base repository.
 - Distribution: versioned release artifacts described by the resource catalog.
@@ -50,11 +50,13 @@ Requires Git and PowerShell 7+.
 pwsh -File ./scripts/Test-Repository.ps1
 ```
 
-## Planned installer workflow
+## Installer workflow
 
-The installer will resolve a requested resource and version from the catalog, download its official release artifact, verify its SHA-256 checksum, inspect the archive, stage the files, preserve local configuration, back up files that would be replaced, and install only after validation succeeds.
+PS Base resolves exact resource versions and dependencies from the catalog, downloads official HTTPS release artifacts, verifies SHA-256 checksums, inspects archives, and installs through a staged process. Fresh installs refuse to overwrite existing resource folders.
 
-Updates will be explicit. Database migrations will never run automatically as a side effect of installing or updating resource files.
+The CLI supports installation profiles, resource status, safe updates, journaled multi-resource update transactions, backup listing and restore, transaction recovery, and safe uninstall. File manifests protect local modifications, untracked files, local deletions and preserve-policy files. No automatic Lua merging is performed.
+
+Updates are explicit. Database migrations never run automatically as a side effect of installing or updating resource files. See [docs/CLI.md](docs/CLI.md), [docs/INSTALLATION.md](docs/INSTALLATION.md), and [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) for usage and metadata rules.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design principles and [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) for contributor workflow.
 
@@ -65,8 +67,10 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design principles and [
 - Verify artifact checksums before extraction.
 - Reject archive entries that escape the selected installation directory.
 - Do not delete unrelated server files.
-- Preserve user configuration by default.
-- Back up replaced files and provide a recovery path.
+- Never overwrite locally modified files automatically.
+- Preserve untracked files, local deletions and catalog-marked preserve-policy files.
+- Back up updates and retain resource, manifest and lockfile metadata for restore.
+- Journal multi-resource update operations and provide interrupted-transaction recovery.
 
 ## License
 
