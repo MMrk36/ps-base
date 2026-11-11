@@ -6,7 +6,7 @@ It is designed to install and manage independently maintained RedM resources. Ea
 
 ## Current status
 
-The repository is a development workspace using Git submodules. The Windows PowerShell 7 installer and resource-management commands are implemented and undergoing validation; the official resource repositories do not yet have published release artifacts.
+The repository is a development workspace and Windows PowerShell 7 desktop installer. It includes a graphical interface, command-line operations, safe installation and update workflows, protected GitHub authentication, and release-catalog synchronization. Actual resource installation becomes available as soon as the resource repositories publish tagged preview/stable releases and the catalog sync completes.
 
 - Development workspace: Git submodules pinned by the PS Base repository.
 - Distribution: versioned release artifacts described by the resource catalog.
