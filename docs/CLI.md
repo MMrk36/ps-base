@@ -73,11 +73,11 @@ Transaction journals are stored under `.ps-base/transactions/`. Recovery restore
 ```powershell
 pwsh -File ./PS-Base.ps1 profiles
 pwsh -File ./PS-Base.ps1 plan -Profile standard
-pwsh -File ./PS-Base.ps1 install -Profile standard -ServerPath "D:/RedM/server"
-pwsh -File ./PS-Base.ps1 update -Profile standard -ServerPath "D:/RedM/server"
+pwsh -File ./PS-Base.ps1 install -Profile standard -ServerPath "D:/RedM/server" -ArtifactVersion 1491
+pwsh -File ./PS-Base.ps1 update -Profile standard -ServerPath "D:/RedM/server" -ArtifactVersion 1491
 ```
 
-Profiles are defined in the catalog and pin an exact version for every top-level resource. Dependencies are resolved dependency-first; a profile pin is also used when a dependency does not specify its own version. An explicit dependency version that conflicts with a profile pin is rejected. Profiles cannot be combined with `-Version`.
+Profiles are defined in the catalog and pin an exact version for every top-level resource. Dependencies are resolved dependency-first; a profile pin is also used when a dependency does not specify its own version. An explicit dependency version that conflicts with a profile pin is rejected. Profiles cannot be combined with `-Version`. Compatibility metadata is checked before installation or updates. If a release declares a minimum server artifact, supply `-ArtifactVersion` so PS Base can verify the target server.
 
 ### Interactive entry point
 
