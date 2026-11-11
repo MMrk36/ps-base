@@ -63,6 +63,29 @@ try {
     $lock = Get-Content (Join-Path $server '.ps-base/lock.json') -Raw | ConvertFrom-Json
     if ($lock.installedResources.'ps-test-resource'.version -ne '2.0.0') { throw 'Updated version was not recorded.' }
 
+    $beforeRollbackManifest = Get-Content -LiteralPath (Join-Path $server '.ps-base/manifests/ps-test-resource.json') -Raw
+    Set-Content -LiteralPath (Join-Path $server '.ps-base/lock.json') -Value 'invalid lock data'
+    $rollbackRelease = Join-Path $testRoot 'rollback-release'
+    New-Item -ItemType Directory -Path $rollbackRelease -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $rollbackRelease 'fxmanifest.lua') -Value 'manifest v3' -NoNewline
+    Set-Content -LiteralPath (Join-Path $rollbackRelease 'unchanged.lua') -Value 'rollback target' -NoNewline
+    Set-Content -LiteralPath (Join-Path $rollbackRelease 'modified.lua') -Value 'new upstream code' -NoNewline
+    Set-Content -LiteralPath (Join-Path $rollbackRelease 'config.lua') -Value 'new default config' -NoNewline
+    Set-Content -LiteralPath (Join-Path $rollbackRelease 'added.lua') -Value 'new file' -NoNewline
+
+    $rollbackFailed = $false
+    try {
+        Invoke-PSBaseResourceUpdate -PlanItem ([pscustomobject]@{
+            Id = 'ps-test-resource'; Version = '3.0.0'; Tag = 'v3.0.0'; Sha256 = 'c' * 64; Repository = 'MMrk36/ps-test-resource'
+        }) -StagedPath $rollbackRelease -ServerRoot $server -InstalledPath $installed -Confirm:$false | Out-Null
+    }
+    catch {
+        $rollbackFailed = $true
+    }
+    if (-not $rollbackFailed) { throw 'Update did not reject an invalid lockfile.' }
+    if ((Get-Content (Join-Path $installed 'unchanged.lua') -Raw) -ne 'new upstream') { throw 'Failed update did not restore resource files.' }
+    if ((Get-Content (Join-Path $server '.ps-base/manifests/ps-test-resource.json') -Raw) -ne $beforeRollbackManifest) { throw 'Failed update did not restore the previous manifest.' }
+
     Write-Host '[PASS] Update applies safe managed file changes.'
     Write-Host '[PASS] Local modifications, preserve-policy and untracked files remain untouched.'
     Write-Host '[PASS] Update backup, manifest and lockfile are recorded.'
