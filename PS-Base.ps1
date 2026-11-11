@@ -1,6 +1,6 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [ValidateSet('menu', 'list', 'plan', 'install', 'update', 'status', 'uninstall')]
+    [ValidateSet('menu', 'list', 'plan', 'install', 'update', 'status', 'uninstall', 'backups', 'restore')]
     [string]$Command = 'menu',
 
     [string[]]$Resource,
@@ -11,7 +11,9 @@ param(
 
     [string]$ServerPath,
 
-    [string]$ResourcesPath
+    [string]$ResourcesPath,
+
+    [string]$BackupId
 )
 
 Set-StrictMode -Version Latest
@@ -25,6 +27,7 @@ $installerModule = Join-Path $root 'src/PSBase/Installer.psm1'
 $updateModule = Join-Path $root 'src/PSBase/Update.psm1'
 $fileManifestModule = Join-Path $root 'src/PSBase/FileManifest.psm1'
 $resourceManagementModule = Join-Path $root 'src/PSBase/ResourceManagement.psm1'
+$backupManagerModule = Join-Path $root 'src/PSBase/BackupManager.psm1'
 
 Import-Module $resolverModule -Force
 Import-Module $catalogModule -Force
@@ -32,6 +35,7 @@ Import-Module $artifactModule -Force
 Import-Module $installerModule -Force
 Import-Module $updateModule -Force
 Import-Module $resourceManagementModule -Force
+Import-Module $backupManagerModule -Force
 Import-Module $fileManifestModule -Force
 
 try {
@@ -237,6 +241,33 @@ try {
             $result = Invoke-PSBaseResourceUninstall -ResourceId $Resource[0] -ServerRoot $ServerPath -Confirm:$false
             Write-Host "Uninstall result: $($result.State). Removed $($result.RemovedFiles) managed files; preserved $($result.PreservedFiles) local files." -ForegroundColor Green
             Write-Host "Backup: $($result.BackupPath)"
+        }
+
+
+        'backups' {
+            if ([string]::IsNullOrWhiteSpace($ServerPath) -or -not (Test-Path -LiteralPath $ServerPath -PathType Container)) {
+                throw 'Specify an existing RedM server root with -ServerPath.'
+            }
+            $backups = @(Get-PSBaseBackupList -ServerRoot $ServerPath)
+            if ($backups.Count -eq 0) {
+                Write-Host 'No PS Base-managed backups were found.'
+            }
+            else {
+                $backups | Sort-Object CreatedAt -Descending | Format-Table BackupId, ResourceId, CreatedAt, Reason, Exists -AutoSize
+            }
+        }
+
+        'restore' {
+            if ([string]::IsNullOrWhiteSpace($BackupId)) {
+                throw 'Specify the exact backup identifier with -BackupId. Use the backups command to list available backups.'
+            }
+            if ([string]::IsNullOrWhiteSpace($ServerPath) -or -not (Test-Path -LiteralPath $ServerPath -PathType Container)) {
+                throw 'Specify an existing RedM server root with -ServerPath.'
+            }
+            if (-not $PSCmdlet.ShouldProcess($ServerPath, "Restore backup $BackupId")) { return }
+            $result = Restore-PSBaseBackup -BackupId $BackupId -ServerRoot $ServerPath -Confirm:$false
+            Write-Host "Restored $($result.ResourceId) from $($result.BackupId)." -ForegroundColor Green
+            if ($result.SafetyBackupPath) { Write-Host "Previous state backed up to: $($result.SafetyBackupPath)" }
         }
 
         'menu' {
