@@ -1,0 +1,33 @@
+name: Validate PS Base
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Validate repository and catalog
+        shell: pwsh
+        run: ./scripts/Test-Repository.ps1
+
+      - name: Test catalog and resolver safeguards
+        shell: pwsh
+        run: ./tests/Test-Catalog.ps1
+
+      - name: Test artifact integrity and archive safety
+        shell: pwsh
+        run: ./tests/Test-Artifact.ps1
+
+      - name: Test staged installation and configuration preservation
+        shell: pwsh
+        run: ./tests/Test-Installer.ps1
+
+      - name: Smoke test CLI catalog listing
+        shell: pwsh
+        run: ./PS-Base.ps1 list
