@@ -1,5 +1,5 @@
-[submodule "pas-core"]
-	path = pas-core
+[submodule "ps-core"]
+	path = ps-core
 	url = https://github.com/MMrk36/ps-core
 [submodule "ps-permissions"]
 	path = ps-permissions
