@@ -8,6 +8,7 @@ The installation engine applies an already verified and extracted resource to a 
 - The resources directory must be inside the selected server root.
 - Resource IDs are used as directory names and must be safe.
 - The staged resource must contain a root-level fxmanifest.lua.
+- A fresh install refuses to overwrite an existing resource directory. Use the update command for resources installed by PS Base; move or back up manually installed resources before installing them through PS Base.
 - The installer does not modify server.cfg.
 - The installer does not run SQL migrations or execute resource scripts.
 
