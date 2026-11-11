@@ -29,7 +29,7 @@ This roadmap tracks implementation status. A feature is marked complete only whe
 ## Resource management
 
 - [x] Installed resource status and file integrity report.
-- [ ] Backup listing and restore command.
+- [x] Backup listing and restore with resource, manifest and lockfile metadata snapshots.
 - [x] Individual resource update workflow with SHA-256 file baselines and local-change protection.
 - [ ] Multi-resource operation recovery.
 - [ ] Dependency and compatibility upgrade checks.
