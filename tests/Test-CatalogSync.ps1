@@ -67,7 +67,27 @@ catch {
 }
 if (-not $failed) { throw 'A release tag and metadata version mismatch was accepted.' }
 
+$unversionedEntry = [pscustomobject]@{ dependencies = @('ps-core') }
+$existingEntry = [pscustomobject]@{ dependencies = @('ps-core@0.1.0') }
+$preservedEntry = Preserve-PSBaseDependencyPins -ReleaseEntry $unversionedEntry -ExistingRelease $existingEntry
+if ($preservedEntry.dependencies.Count -ne 1 -or $preservedEntry.dependencies[0] -ne 'ps-core@0.1.0') {
+    throw 'Catalog synchronization did not preserve an existing exact dependency pin for an unchanged release.'
+}
+
+$explicitEntry = [pscustomobject]@{ dependencies = @('ps-core@0.2.0') }
+$explicitResult = Preserve-PSBaseDependencyPins -ReleaseEntry $explicitEntry -ExistingRelease $existingEntry
+if ($explicitResult.dependencies[0] -ne 'ps-core@0.2.0') {
+    throw 'An explicit dependency version from release metadata was incorrectly replaced.'
+}
+
+$changedEntry = [pscustomobject]@{ dependencies = @('ps-database') }
+$changedResult = Preserve-PSBaseDependencyPins -ReleaseEntry $changedEntry -ExistingRelease $existingEntry
+if ($changedResult.dependencies[0] -ne 'ps-database') {
+    throw 'An existing dependency pin was incorrectly preserved after the dependency identity changed.'
+}
+
 Write-Host '[PASS] GitHub release metadata is converted into exact catalog entries.'
 Write-Host '[PASS] Preview releases require explicit version selection and remain installable by exact version.'
 Write-Host '[PASS] Invalid checksum sidecars are rejected.'
 Write-Host '[PASS] Tag and release metadata version mismatches are rejected.'
+Write-Host '[PASS] Catalog synchronization preserves exact pins for unchanged release dependencies.'
