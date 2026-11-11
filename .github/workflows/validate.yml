@@ -28,6 +28,10 @@ jobs:
         shell: pwsh
         run: ./tests/Test-Installer.ps1
 
+      - name: Test safe update planning and manifests
+        shell: pwsh
+        run: ./tests/Test-FileManifest.ps1
+
       - name: Smoke test CLI catalog listing
         shell: pwsh
         run: ./PS-Base.ps1 list
