@@ -108,6 +108,7 @@ function ConvertTo-PSBaseReleaseEntry {
     $entry = [ordered]@{
         version = [string]$Metadata.version
         tag = $tag
+        status = [string]$Metadata.status
         asset = $zipName
         url = [string]$zipAsset.url
         sha256 = $hash
