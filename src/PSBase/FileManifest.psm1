@@ -39,7 +39,8 @@ function Get-PSBaseFileManifest {
                 $policy = [string]$FilePolicies.default
             }
 
-            foreach ($rule in @($FilePolicies.rules)) {
+            $rules = if ($null -ne $FilePolicies.PSObject -and $null -ne $FilePolicies.PSObject.Properties['rules']) { @($FilePolicies.rules) } else { @() }
+            foreach ($rule in $rules) {
                 if ([string]::IsNullOrWhiteSpace([string]$rule.pattern) -or
                     $rule.policy -notin @('managed', 'preserve', 'replace')) {
                     throw 'File policy rules require a pattern and a valid policy.'
