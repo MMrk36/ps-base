@@ -1,6 +1,6 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [ValidateSet('gui', 'menu', 'list', 'plan', 'install', 'update', 'status', 'uninstall', 'backups', 'restore', 'transactions', 'recover', 'profiles')]
+    [ValidateSet('gui', 'menu', 'sync-catalog', 'list', 'plan', 'install', 'update', 'status', 'uninstall', 'backups', 'restore', 'transactions', 'recover', 'profiles')]
     [string]$Command = 'gui',
 
     [string[]]$Resource,
@@ -36,6 +36,7 @@ $resourceManagementModule = Join-Path $root 'src/PSBase/ResourceManagement.psm1'
 $backupManagerModule = Join-Path $root 'src/PSBase/BackupManager.psm1'
 $transactionModule = Join-Path $root 'src/PSBase/Transaction.psm1'
 $compatibilityModule = Join-Path $root 'src/PSBase/Compatibility.psm1'
+$catalogSyncModule = Join-Path $root 'src/PSBase/CatalogSync.psm1'
 
 Import-Module $resolverModule -Force
 Import-Module $catalogModule -Force
@@ -46,6 +47,7 @@ Import-Module $resourceManagementModule -Force
 Import-Module $backupManagerModule -Force
 Import-Module $transactionModule -Force
 Import-Module $compatibilityModule -Force
+Import-Module $catalogSyncModule -Force
 Import-Module $fileManifestModule -Force
 
 try {
@@ -57,6 +59,11 @@ try {
     }
 
     switch ($Command) {
+        'sync-catalog' {
+            $result = Update-PSBaseCatalogFromGitHub -CatalogPath $(if ($CatalogPath) { $CatalogPath } else { Join-Path $root 'catalog/resources.json' })
+            Write-Host "Catalog synchronized. $($result.Installable) installable resources and $($result.Releases) published releases." -ForegroundColor Green
+        }
+
         'gui' {
             if (-not $IsWindows) {
                 throw 'The desktop interface currently requires Windows and PowerShell 7. Use the CLI commands on other platforms.'
