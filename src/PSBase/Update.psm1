@@ -56,8 +56,11 @@ function Invoke-PSBaseResourceUpdate {
     $server = [System.IO.Path]::GetFullPath($ServerRoot)
     $target = [System.IO.Path]::GetFullPath($InstalledPath)
     $prefix = $server.TrimEnd([System.IO.Path]::DirectorySeparatorChar) + [System.IO.Path]::DirectorySeparatorChar
-    if (-not $target.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)) {
-        throw 'Installed resource path must be inside the selected server root.'
+    if (-not $target.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) -or (Split-Path -Leaf $target) -ine $PlanItem.Id) {
+        throw 'Installed resource path must be the named resource directory inside the selected server root.'
+    }
+    if ((Get-Item -LiteralPath $target).Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
+        throw 'Installed resource directory cannot be a symbolic link or reparse point.'
     }
 
     if (-not (Test-Path -LiteralPath $target -PathType Container) -or
