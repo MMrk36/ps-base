@@ -111,6 +111,7 @@ function New-PSBaseBackup {
 
     return [pscustomobject]@{
         BackupId = $backupId
+        ResourceId = $ResourceId
         BackupPath = $backupPath
         MetadataPath = $metadataPath
     }
