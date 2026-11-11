@@ -183,6 +183,7 @@ function Get-PSBaseUpdatePlan {
 
         $old = $PreviousManifest.files[$relative]
         $new = $NewManifest.files[$relative]
+        $pathExists = Test-Path -LiteralPath $target
         $exists = Test-Path -LiteralPath $target -PathType Leaf
         $currentHash = if ($exists) { (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLowerInvariant() } else { $null }
 
@@ -199,7 +200,10 @@ function Get-PSBaseUpdatePlan {
             $policy = [string]$old.policy
         }
 
-        if ($null -eq $old -and $null -ne $new) {
+        if ($pathExists -and -not $exists) {
+            $reason = 'A local directory occupies a managed file path; it is protected.'
+        }
+        elseif ($null -eq $old -and $null -ne $new) {
             if ($exists) {
                 $reason = 'An untracked local file already occupies this path.'
             }
