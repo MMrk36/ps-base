@@ -67,8 +67,167 @@ function Get-PSBaseCatalog {
                 }
             }
 
-            if ($release.url -notmatch '^https://' -or $release.sha256 -notmatch '^[A-Fa-f0-9]{64}$') {
+            if ($release.url -notmatch '^https://' -or $release.sha256 -notmatch '^[A-Fa-f0-9]{64}
+
+            if ($null -ne $release.PSObject.Properties['apiVersion'] -and
+                $release.apiVersion -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
+                throw "Release '$($resource.id)@$($release.version)' has an invalid PS Core API version."
+            }
+
+            if ($null -ne $release.PSObject.Properties['minimumArtifact'] -and
+                $release.minimumArtifact -notmatch '^[0-9]+(?:\.[0-9]+){0,3}$') {
+                throw "Release '$($resource.id)@$($release.version)' has an invalid minimum artifact version."
+            }
+
+            if ($null -ne $release.PSObject.Properties['psCoreApi']) {
+                $range = $release.psCoreApi
+                $hasMinimum = $null -ne $range.PSObject.Properties['minVersion']
+                $hasMaximum = $null -ne $range.PSObject.Properties['maxVersion']
+                if (-not $hasMinimum -and -not $hasMaximum) {
+                    throw "Release '$($resource.id)@$($release.version)' has an empty PS Core API range."
+                }
+                if ($hasMinimum -and $range.minVersion -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
+                    throw "Release '$($resource.id)@$($release.version)' has an invalid minimum PS Core API version."
+                }
+                if ($hasMaximum -and $range.maxVersion -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
+                    throw "Release '$($resource.id)@$($release.version)' has an invalid maximum PS Core API version."
+                }
+                if ($hasMinimum -and $hasMaximum) {
+                    $minimum = [version]($range.minVersion -replace '[-+].*$', '')
+                    $maximum = [version]($range.maxVersion -replace '[-+].*$', '')
+                    if ($minimum -ge $maximum) {
+                        throw "Release '$($resource.id)@$($release.version)' has an invalid PS Core API version range."
+                    }
+                }
+            }
+        }
+    }
+
+    if ($null -ne $catalog.PSObject.Properties['profiles']) {
+        if ($catalog.profiles -isnot [System.Array]) {
+            throw 'Catalog profiles must be an array.'
+        }
+
+        $profileIds = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+        foreach ($profile in $catalog.profiles) {
+            foreach ($field in @('id', 'name', 'resources')) {
+                if ($null -eq $profile.PSObject.Properties[$field]) {
+                    throw "A catalog profile is missing required field '$field'."
+                }
+            }
+
+            if ($profile.id -notmatch '^[a-z0-9]+(?:-[a-z0-9]+)*$' -or -not $profileIds.Add($profile.id)) {
+                throw "Catalog contains an invalid or duplicate profile ID '$($profile.id)'."
+            }
+            if ($profile.resources -isnot [System.Array] -or $profile.resources.Count -eq 0) {
+                throw "Profile '$($profile.id)' must contain at least one resource."
+            }
+
+            $profileResources = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
+            foreach ($item in $profile.resources) {
+                if ([string]::IsNullOrWhiteSpace([string]$item.id) -or
+                    [string]::IsNullOrWhiteSpace([string]$item.version) -or
+                    $item.version -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
+                    throw "Profile '$($profile.id)' contains a resource without a valid exact version pin."
+                }
+                if (-not $profileResources.Add([string]$item.id)) {
+                    throw "Profile '$($profile.id)' contains duplicate resource '$($item.id)'."
+                }
+
+                $profileResource = @($catalog.resources | Where-Object { $_.id -ieq $item.id }) | Select-Object -First 1
+                if ($null -eq $profileResource) {
+                    throw "Profile '$($profile.id)' references unknown resource '$($item.id)'."
+                }
+                if (-not $profileResource.installable -or
+                    @($profileResource.releases | Where-Object { $_.version -eq $item.version }).Count -eq 0) {
+                    throw "Profile '$($profile.id)' references unpublished version '$($item.id)@$($item.version)'."
+                }
+            }
+        }
+    }
+
+    return $catalog
+}
+
+function Get-PSBaseProfile {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Catalog,
+        [Parameter(Mandatory)][string]$Id
+    )
+
+    if ($null -eq $Catalog.PSObject.Properties['profiles']) {
+        throw 'The catalog does not define any installation profiles.'
+    }
+
+    $profile = @($Catalog.profiles | Where-Object { $_.id -ieq $Id }) | Select-Object -First 1
+    if ($null -eq $profile) {
+        throw "Profile '$Id' is not present in the catalog."
+    }
+
+    return $profile
+}
+
+function Get-PSBaseResource {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Catalog,
+        [Parameter(Mandatory)][string]$Id
+    )
+
+    $resource = @($Catalog.resources | Where-Object { $_.id -ieq $Id }) | Select-Object -First 1
+    if ($null -eq $resource) {
+        throw "Resource '$Id' is not present in the catalog."
+    }
+
+    return $resource
+}
+
+function Get-PSBaseRelease {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)]$Resource,
+        [string]$Version
+    )
+
+    if (-not $Resource.installable) {
+        throw "Resource '$($Resource.id)' is not installable yet. It is currently marked '$($Resource.status)'."
+    }
+
+    $releases = @($Resource.releases)
+    if (-not [string]::IsNullOrWhiteSpace($Version)) {
+        $release = $releases | Where-Object { $_.version -eq $Version } | Select-Object -First 1
+        if ($null -eq $release) {
+            throw "Version '$Version' is not published for '$($Resource.id)'."
+        }
+        return $release
+    }
+
+    $stable = foreach ($release in $releases) {
+        $channel = if ($null -ne $release.PSObject.Properties['status']) { [string]$release.status } else { 'stable' }
+        if ($channel -eq 'stable' -and $release.version -match '^(\d+)\.(\d+)\.(\d+)$') {
+            [pscustomobject]@{
+                Release = $release
+                Parsed = [version]::new([int]$Matches[1], [int]$Matches[2], [int]$Matches[3])
+            }
+        }
+    }
+
+    $selected = $stable | Sort-Object -Property Parsed -Descending | Select-Object -First 1
+    if ($null -eq $selected) {
+        throw "No stable semantic version is available for '$($Resource.id)'. Specify an exact preview version explicitly."
+    }
+
+    return $selected.Release
+}
+
+Export-ModuleMember -Function Get-PSBaseCatalog, Get-PSBaseProfile, Get-PSBaseResource, Get-PSBaseRelease
+) {
                 throw "Release '$($resource.id)@$($release.version)' has an invalid URL or SHA-256 checksum."
+            }
+
+            if ($null -ne $release.PSObject.Properties['status'] -and $release.status -notin @('preview', 'stable')) {
+                throw "Release '$($resource.id)@$($release.version)' has an invalid release channel."
             }
 
             if ($null -ne $release.PSObject.Properties['apiVersion'] -and
