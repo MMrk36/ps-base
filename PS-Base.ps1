@@ -1,6 +1,6 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [ValidateSet('menu', 'list', 'plan', 'install', 'update', 'status', 'uninstall', 'backups', 'restore', 'transactions', 'recover')]
+    [ValidateSet('menu', 'list', 'plan', 'install', 'update', 'status', 'uninstall', 'backups', 'restore', 'transactions', 'recover', 'profiles')]
     [string]$Command = 'menu',
 
     [string[]]$Resource,
@@ -15,7 +15,9 @@ param(
 
     [string]$BackupId,
 
-    [string]$TransactionId
+    [string]$TransactionId,
+
+    [string]$Profile
 )
 
 Set-StrictMode -Version Latest
@@ -60,19 +62,30 @@ try {
         }
 
         'plan' {
-            if (-not $Resource -or $Resource.Count -eq 0) {
-                throw 'Specify at least one resource with -Resource.'
+            if (-not $Profile -and (-not $Resource -or $Resource.Count -eq 0)) {
+                throw 'Specify at least one resource with -Resource or an installation profile with -Profile.'
+            }
+            if ($Profile -and $Version) {
+                throw 'Profiles pin exact versions. Do not combine -Profile with -Version.'
             }
 
-            $plan = Resolve-PSBaseInstallPlan -Catalog $catalog -ResourceIds $Resource -Version $Version
+            $plan = if ($Profile) {
+                Resolve-PSBaseProfilePlan -Catalog $catalog -ProfileId $Profile
+            }
+            else {
+                Resolve-PSBaseInstallPlan -Catalog $catalog -ResourceIds $Resource -Version $Version
+            }
             Write-Host 'Resolved installation plan:' -ForegroundColor Cyan
             $plan | Format-Table Id, Version, Name -AutoSize
             Write-Host 'No files have been downloaded or changed.' -ForegroundColor Yellow
         }
 
         'install' {
-            if (-not $Resource -or $Resource.Count -eq 0) {
-                throw 'Specify at least one resource with -Resource.'
+            if (-not $Profile -and (-not $Resource -or $Resource.Count -eq 0)) {
+                throw 'Specify at least one resource with -Resource or an installation profile with -Profile.'
+            }
+            if ($Profile -and $Version) {
+                throw 'Profiles pin exact versions. Do not combine -Profile with -Version.'
             }
 
             if ([string]::IsNullOrWhiteSpace($ServerPath)) {
@@ -95,7 +108,7 @@ try {
                 throw "Resources directory does not exist: $resourcesRoot"
             }
 
-            $plan = @(Resolve-PSBaseInstallPlan -Catalog $catalog -ResourceIds $Resource -Version $Version)
+            $plan = if ($Profile) { @(Resolve-PSBaseProfilePlan -Catalog $catalog -ProfileId $Profile) } else { @(Resolve-PSBaseInstallPlan -Catalog $catalog -ResourceIds $Resource -Version $Version) }
             Write-Host 'Installation plan:' -ForegroundColor Cyan
             $plan | Format-Table Id, Version, Name -AutoSize
 
@@ -142,8 +155,11 @@ try {
 
 
         'update' {
-            if (-not $Resource -or $Resource.Count -eq 0) {
-                throw 'Specify at least one installed resource with -Resource.'
+            if (-not $Profile -and (-not $Resource -or $Resource.Count -eq 0)) {
+                throw 'Specify at least one installed resource with -Resource or an installation profile with -Profile.'
+            }
+            if ($Profile -and $Version) {
+                throw 'Profiles pin exact versions. Do not combine -Profile with -Version.'
             }
             if ([string]::IsNullOrWhiteSpace($ServerPath) -or -not (Test-Path -LiteralPath $ServerPath -PathType Container)) {
                 throw 'Specify an existing RedM server root with -ServerPath.'
@@ -152,7 +168,7 @@ try {
             $serverRoot = [System.IO.Path]::GetFullPath($ServerPath)
             $resourcesRoot = if ([string]::IsNullOrWhiteSpace($ResourcesPath)) { Join-Path $serverRoot 'resources' } else { [System.IO.Path]::GetFullPath($ResourcesPath) }
             if (-not (Test-Path -LiteralPath $resourcesRoot -PathType Container)) { throw "Resources directory does not exist: $resourcesRoot" }
-            $plan = @(Resolve-PSBaseInstallPlan -Catalog $catalog -ResourceIds $Resource -Version $Version)
+            $plan = if ($Profile) { @(Resolve-PSBaseProfilePlan -Catalog $catalog -ProfileId $Profile) } else { @(Resolve-PSBaseInstallPlan -Catalog $catalog -ResourceIds $Resource -Version $Version) }
             $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("ps-base-update-" + [guid]::NewGuid().ToString('N'))
             $prepared = [System.Collections.Generic.List[object]]::new()
 
@@ -295,6 +311,19 @@ try {
             if (-not $PSCmdlet.ShouldProcess($ServerPath, "Recover update transaction $TransactionId")) { return }
             $result = Restore-PSBaseUpdateTransaction -TransactionId $TransactionId -ServerRoot $ServerPath
             Write-Host "Transaction $($result.TransactionId) recovery finished: $($result.Status)." -ForegroundColor Green
+        }
+
+
+        'profiles' {
+            $profiles = @($catalog.profiles)
+            if ($profiles.Count -eq 0) {
+                Write-Host 'No installation profiles are published yet.'
+            }
+            else {
+                $profiles | Select-Object id, name, description,
+                    @{Name = 'PinnedResources'; Expression = { @($_.resources).Count }} |
+                    Format-Table -AutoSize
+            }
         }
 
         'menu' {
