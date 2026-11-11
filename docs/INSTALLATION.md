@@ -13,9 +13,23 @@ The installation engine applies an already verified and extracted resource to a 
 
 ## Configuration preservation
 
-A catalog resource may define preservePaths, a list of relative paths such as config/ and config.lua.
+A catalog resource may define `filePolicies`:
 
-When updating an existing resource, those paths are copied from the current installation into the staged release before replacement. No automatic Lua merge is attempted.
+- `managed`: an unchanged file can be updated; a locally modified file is always protected.
+- `preserve`: never replace or delete automatically, even when unchanged.
+- `replace`: update an unchanged file; a locally modified file still requires a future explicit conflict-resolution action.
+
+Rules use relative path patterns and override the default policy. The legacy `preservePaths` list is treated as a preserve policy.
+
+Each installation records a SHA-256 baseline for every release file in `.ps-base/manifests/<resource>.json`. Updates compare the previous release baseline, the current file and the new release. Untracked files and local deletions are preserved. A file removed upstream is deleted only when it still matches its previous baseline and is not protected by policy. No automatic Lua merge is attempted.
+
+Updates are available through:
+
+```powershell
+pwsh -File ./PS-Base.ps1 update -Resource ps-core -ServerPath "D:/RedM/server"
+```
+
+The command displays a file-level plan before applying it. It downloads and verifies the selected release, creates a full resource backup, applies only safe changes, and records the new baseline and installed version. If an operation fails, it attempts to restore the prior resource, manifest and lockfile. Keep backups until the update has been verified in a running server.
 
 ## Backups and lockfile
 
