@@ -50,6 +50,15 @@ pwsh -File ./PS-Base.ps1 uninstall -Resource ps-core -ServerPath "D:/RedM/server
 
 Uninstall creates a full backup and removes only unchanged files managed by PS Base. Locally modified, untracked and preserve-policy files are retained. If any files remain, the resource is marked as partially uninstalled rather than deleting user data.
 
+### List backups and restore a resource
+
+```powershell
+pwsh -File ./PS-Base.ps1 backups -ServerPath "D:/RedM/server"
+pwsh -File ./PS-Base.ps1 restore -BackupId "ps-core-update-20261111-120000-123-<guid>" -ServerPath "D:/RedM/server"
+```
+
+Backups created by PS Base include the resource files and the matching manifest/lockfile metadata. Restore creates a safety backup of the current resource before replacing it. Use the exact backup identifier from the listing; restore never accepts an arbitrary filesystem path.
+
 ### Interactive entry point
 
 Running the script without a command opens the initial menu. The menu currently exposes catalog listing and the planning command guidance. A full interactive installation flow will be added after the release and installation engine is implemented.
