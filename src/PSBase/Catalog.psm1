@@ -67,7 +67,13 @@ function Get-PSBaseCatalog {
                 }
             }
 
-            if ($release.url -notmatch '^https://' -or $release.sha256 -notmatch '^[A-Fa-f0-9]{64}
+            if ($release.url -notmatch '^https://' -or $release.sha256 -notmatch '^[A-Fa-f0-9]{64}$') {
+                throw "Release '$($resource.id)@$($release.version)' has an invalid URL or SHA-256 checksum."
+            }
+
+            if ($null -ne $release.PSObject.Properties['status'] -and $release.status -notin @('preview', 'stable')) {
+                throw "Release '$($resource.id)@$($release.version)' has an invalid release channel."
+            }
 
             if ($null -ne $release.PSObject.Properties['apiVersion'] -and
                 $release.apiVersion -notmatch '^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$') {
