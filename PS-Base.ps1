@@ -1,7 +1,7 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [ValidateSet('menu', 'list', 'plan', 'install', 'update', 'status', 'uninstall', 'backups', 'restore', 'transactions', 'recover', 'profiles')]
-    [string]$Command = 'menu',
+    [ValidateSet('gui', 'menu', 'list', 'plan', 'install', 'update', 'status', 'uninstall', 'backups', 'restore', 'transactions', 'recover', 'profiles')]
+    [string]$Command = 'gui',
 
     [string[]]$Resource,
 
@@ -57,6 +57,18 @@ try {
     }
 
     switch ($Command) {
+        'gui' {
+            if (-not $IsWindows) {
+                throw 'The desktop interface currently requires Windows and PowerShell 7. Use the CLI commands on other platforms.'
+            }
+            $guiPath = Join-Path $root 'PS-Base-GUI.ps1'
+            if (-not (Test-Path -LiteralPath $guiPath -PathType Leaf)) {
+                throw "Desktop interface not found: $guiPath"
+            }
+            $pwsh = (Get-Command pwsh -ErrorAction Stop).Source
+            Start-Process -FilePath $pwsh -ArgumentList @('-NoProfile', '-STA', '-File', "`"$guiPath`"")
+        }
+
         'list' {
             $catalog.resources |
                 Sort-Object name |
