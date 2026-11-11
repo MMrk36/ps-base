@@ -34,6 +34,22 @@ The update command resolves the selected release and dependencies, downloads and
 
 Use `-WhatIf` to skip applying the prepared update. Database migrations and server.cfg changes are never performed.
 
+### Inspect installed resources
+
+```powershell
+pwsh -File ./PS-Base.ps1 status -ServerPath "D:/RedM/server"
+```
+
+The status report compares installed files with the recorded release manifest and reports modified, missing and untracked files.
+
+### Safely uninstall a resource
+
+```powershell
+pwsh -File ./PS-Base.ps1 uninstall -Resource ps-core -ServerPath "D:/RedM/server"
+```
+
+Uninstall creates a full backup and removes only unchanged files managed by PS Base. Locally modified, untracked and preserve-policy files are retained. If any files remain, the resource is marked as partially uninstalled rather than deleting user data.
+
 ### Interactive entry point
 
 Running the script without a command opens the initial menu. The menu currently exposes catalog listing and the planning command guidance. A full interactive installation flow will be added after the release and installation engine is implemented.
