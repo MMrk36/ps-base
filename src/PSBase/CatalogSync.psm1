@@ -46,7 +46,28 @@ function Get-PSBaseGitHubAssetContent {
                     }
 
                     if (-not $response.IsSuccessStatusCode) {
-                        throw "Could not download GitHub release metadata asset (HTTP $([int]$response.StatusCode))."
+                        $status = [int]$response.StatusCode
+                        $hostName = $currentUri.Host
+                        $path = $currentUri.AbsolutePath
+                        $requestId = $response.Headers.GetValues('X-GitHub-Request-Id') -join ','
+                        $detail = ''
+
+                        if ($hostName -ieq 'api.github.com') {
+                            try {
+                                $body = $response.Content.ReadAsStringAsync().GetAwaiter().GetResult()
+                                if (-not [string]::IsNullOrWhiteSpace($body)) {
+                                    $detail = ($body -replace '[\r\n\t]+', ' ').Trim()
+                                    if ($detail.Length -gt 1000) { $detail = $detail.Substring(0, 1000) }
+                                }
+                            }
+                            catch { $detail = 'The response body could not be read.' }
+                        }
+
+                        $message = "Could not download GitHub release metadata asset (HTTP $status) from $hostName$path."
+                        if (-not [string]::IsNullOrWhiteSpace($requestId)) { $message += " GitHub request ID: $requestId." }
+                        if (-not [string]::IsNullOrWhiteSpace($detail)) { $message += " GitHub response: $detail" }
+                        elseif ($hostName -ine 'api.github.com') { $message += ' The failure occurred after redirecting to the release asset host; the signed URL query was intentionally omitted.' }
+                        throw $message
                     }
 
                     $bytes = $response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult()
