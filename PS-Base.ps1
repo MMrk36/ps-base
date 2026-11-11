@@ -1,6 +1,6 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [ValidateSet('menu', 'list', 'plan', 'install', 'update', 'status', 'uninstall', 'backups', 'restore')]
+    [ValidateSet('menu', 'list', 'plan', 'install', 'update', 'status', 'uninstall', 'backups', 'restore', 'transactions', 'recover')]
     [string]$Command = 'menu',
 
     [string[]]$Resource,
@@ -13,7 +13,9 @@ param(
 
     [string]$ResourcesPath,
 
-    [string]$BackupId
+    [string]$BackupId,
+
+    [string]$TransactionId
 )
 
 Set-StrictMode -Version Latest
@@ -28,6 +30,7 @@ $updateModule = Join-Path $root 'src/PSBase/Update.psm1'
 $fileManifestModule = Join-Path $root 'src/PSBase/FileManifest.psm1'
 $resourceManagementModule = Join-Path $root 'src/PSBase/ResourceManagement.psm1'
 $backupManagerModule = Join-Path $root 'src/PSBase/BackupManager.psm1'
+$transactionModule = Join-Path $root 'src/PSBase/Transaction.psm1'
 
 Import-Module $resolverModule -Force
 Import-Module $catalogModule -Force
@@ -36,6 +39,7 @@ Import-Module $installerModule -Force
 Import-Module $updateModule -Force
 Import-Module $resourceManagementModule -Force
 Import-Module $backupManagerModule -Force
+Import-Module $transactionModule -Force
 Import-Module $fileManifestModule -Force
 
 try {
@@ -149,9 +153,6 @@ try {
             $resourcesRoot = if ([string]::IsNullOrWhiteSpace($ResourcesPath)) { Join-Path $serverRoot 'resources' } else { [System.IO.Path]::GetFullPath($ResourcesPath) }
             if (-not (Test-Path -LiteralPath $resourcesRoot -PathType Container)) { throw "Resources directory does not exist: $resourcesRoot" }
             $plan = @(Resolve-PSBaseInstallPlan -Catalog $catalog -ResourceIds $Resource -Version $Version)
-            if ($plan.Count -gt 1) {
-                throw 'Multi-resource update transactions are not available yet. Update one resource at a time; no files have been changed.'
-            }
             $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("ps-base-update-" + [guid]::NewGuid().ToString('N'))
             $prepared = [System.Collections.Generic.List[object]]::new()
 
@@ -205,10 +206,10 @@ try {
                 $summary = ($plan | ForEach-Object { "$($_.Id) $($_.Version)" }) -join ', '
                 if (-not $PSCmdlet.ShouldProcess($serverRoot, "Update $summary")) { return }
 
-                foreach ($entry in $prepared) {
-                    $result = Invoke-PSBaseResourceUpdate -PlanItem $entry.Item -StagedPath $entry.StagePath -ServerRoot $serverRoot -InstalledPath $entry.TargetPath -FilePolicies $entry.Policies -Confirm:$false
-                    Write-Host "Updated $($entry.Item.Id) to $($entry.Item.Version). Applied $($result.Changes) file changes." -ForegroundColor Green
-                    if ($result.Changes -eq 0) { Write-Host 'No file changes were necessary.' }
+                $transaction = Invoke-PSBaseUpdateTransaction -PreparedItems $prepared.ToArray() -ServerRoot $serverRoot
+                Write-Host "Update transaction $($transaction.TransactionId) completed." -ForegroundColor Green
+                foreach ($result in $transaction.Results) {
+                    Write-Host "Updated $($result.Id) to $($result.Version). Applied $($result.Changes) file changes." -ForegroundColor Green
                 }
             }
             finally {
@@ -268,6 +269,32 @@ try {
             $result = Restore-PSBaseBackup -BackupId $BackupId -ServerRoot $ServerPath -Confirm:$false
             Write-Host "Restored $($result.ResourceId) from $($result.BackupId)." -ForegroundColor Green
             if ($result.SafetyBackupPath) { Write-Host "Previous state backed up to: $($result.SafetyBackupPath)" }
+        }
+
+
+        'transactions' {
+            if ([string]::IsNullOrWhiteSpace($ServerPath) -or -not (Test-Path -LiteralPath $ServerPath -PathType Container)) {
+                throw 'Specify an existing RedM server root with -ServerPath.'
+            }
+            $transactions = @(Get-PSBaseTransactionList -ServerRoot $ServerPath)
+            if ($transactions.Count -eq 0) {
+                Write-Host 'No PS Base update transactions were found.'
+            }
+            else {
+                $transactions | Sort-Object StartedAt -Descending | Format-Table TransactionId, Status, StartedAt, UpdatedAt -AutoSize
+            }
+        }
+
+        'recover' {
+            if ([string]::IsNullOrWhiteSpace($TransactionId)) {
+                throw 'Specify the transaction ID with -TransactionId. Use the transactions command to list journals.'
+            }
+            if ([string]::IsNullOrWhiteSpace($ServerPath) -or -not (Test-Path -LiteralPath $ServerPath -PathType Container)) {
+                throw 'Specify an existing RedM server root with -ServerPath.'
+            }
+            if (-not $PSCmdlet.ShouldProcess($ServerPath, "Recover update transaction $TransactionId")) { return }
+            $result = Restore-PSBaseUpdateTransaction -TransactionId $TransactionId -ServerRoot $ServerPath
+            Write-Host "Transaction $($result.TransactionId) recovery finished: $($result.Status)." -ForegroundColor Green
         }
 
         'menu' {
