@@ -77,6 +77,12 @@ try {
         throw 'The user-selected resource was not marked as requested.'
     }
 
+    $bothSelectedPlan = @(Resolve-PSBaseInstallPlan -Catalog $catalog -ResourceIds @('ps-widget', 'ps-base-lib'))
+    $explicitDependency = $bothSelectedPlan | Where-Object { $_.Id -eq 'ps-base-lib' } | Select-Object -First 1
+    if ($null -eq $explicitDependency -or -not $explicitDependency.Requested) {
+        throw 'A dependency explicitly selected by the user was incorrectly marked as automatic.'
+    }
+
     $conflictDetected = $false
     try {
         Resolve-PSBaseProfilePlan -Catalog $catalog -ProfileId 'conflict' | Out-Null
