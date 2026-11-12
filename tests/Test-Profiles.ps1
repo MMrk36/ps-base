@@ -67,6 +67,16 @@ try {
     if ($plan[0].Id -ne 'ps-base-lib' -or $plan[0].Version -ne '1.0.0') { throw 'Profile dependency was not pinned and ordered first.' }
     if ($plan[1].Id -ne 'ps-widget') { throw 'Profile dependent resource was not ordered after its dependency.' }
 
+    $selectedPlan = @(Resolve-PSBaseInstallPlan -Catalog $catalog -ResourceIds @('ps-widget'))
+    $dependency = $selectedPlan | Where-Object { $_.Id -eq 'ps-base-lib' } | Select-Object -First 1
+    $requested = $selectedPlan | Where-Object { $_.Id -eq 'ps-widget' } | Select-Object -First 1
+    if ($null -eq $dependency -or $dependency.Requested) {
+        throw 'A required dependency was not marked as automatically included.'
+    }
+    if ($null -eq $requested -or -not $requested.Requested) {
+        throw 'The user-selected resource was not marked as requested.'
+    }
+
     $conflictDetected = $false
     try {
         Resolve-PSBaseProfilePlan -Catalog $catalog -ProfileId 'conflict' | Out-Null
@@ -76,6 +86,7 @@ try {
     }
     if (-not $conflictDetected) { throw 'Profile resolver did not reject conflicting exact dependency pins.' }
 
+    Write-Host '[PASS] Explicit resource selection marks roots separately from automatic dependencies.'
     Write-Host '[PASS] Profiles validate exact published versions.'
     Write-Host '[PASS] Profile resolution applies pinned versions to unpinned dependencies.'
     Write-Host '[PASS] Conflicting profile and dependency pins are rejected.'
