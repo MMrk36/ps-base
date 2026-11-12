@@ -299,12 +299,20 @@ func expectedHash(path, name string) (string, error) {
 		return "", err
 	}
 	defer file.Close()
+
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		fields := strings.Fields(scanner.Text())
-		if len(fields) >= 2 && strings.TrimPrefix(fields[len(fields)-1], "*") == name {
-			if validSHA256(fields[0]) {
-				return fields[0], nil
+		line := scanner.Text()
+		if !strings.Contains(line, name) {
+			continue
+		}
+
+		// PowerShell's release checksum file may use either GNU-style
+		// "HASH *filename" or BSD-style "SHA256 (filename) = HASH" rows.
+		for _, field := range strings.Fields(line) {
+			candidate := strings.Trim(field, "()=*")
+			if validSHA256(candidate) {
+				return candidate, nil
 			}
 		}
 	}
