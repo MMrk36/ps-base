@@ -56,10 +56,20 @@ func main() {
 func run() error {
 	fmt.Println("Pedro Scripts | PS Base")
 	fmt.Println("Checking GitHub for the latest installer...")
-	client := &http.Client{Timeout: 2 * time.Minute}
-	latest, err := getJSON[release](client, "https://api.github.com/repos/"+repository+"/releases/latest")
+	client := &http.Client{Timeout: 15 * time.Minute}
+	releases, err := getJSON[[]release](client, "https://api.github.com/repos/"+repository+"/releases?per_page=20")
 	if err != nil {
-		return fmt.Errorf("could not check the latest PS Base release: %w", err)
+		return fmt.Errorf("could not check PS Base releases: %w", err)
+	}
+	var latest release
+	for _, candidate := range releases {
+		if candidate.TagName != "" && len(candidate.Assets) > 0 {
+			latest = candidate
+			break
+		}
+	}
+	if latest.TagName == "" {
+		return errors.New("no published PS Base release is available yet")
 	}
 
 	manifestURL := assetURL(latest, "psbase-bootstrap.json")
@@ -129,7 +139,7 @@ func installApplication(client *http.Client, rel release, manifest bootstrapMani
 	if !strings.EqualFold(hash, manifest.AppSHA256) {
 		return errors.New("PS Base installer download failed SHA-256 verification")
 	}
-	return extractZipAtomic(archivePath, target, root)
+	return extractZipAtomic(archivePath, target, root, false)
 }
 
 func installPowerShell(client *http.Client, version, target, root string) error {
@@ -167,10 +177,10 @@ func installPowerShell(client *http.Client, version, target, root string) error 
 	if !strings.EqualFold(actual, expected) {
 		return errors.New("portable PowerShell failed official SHA-256 verification")
 	}
-	return extractZipAtomic(archivePath, target, root)
+	return extractZipAtomic(archivePath, target, root, true)
 }
 
-func extractZipAtomic(archivePath, target, root string) error {
+func extractZipAtomic(archivePath, target, root string, isRuntime bool) error {
 	temp := filepath.Join(root, ".extract-"+fmt.Sprintf("%d", time.Now().UnixNano()))
 	if err := os.MkdirAll(temp, 0700); err != nil {
 		return err
@@ -224,7 +234,7 @@ func extractZipAtomic(archivePath, target, root string) error {
 			return closeErr
 		}
 	}
-	if filepath.Base(target) == "runtime-"+strings.TrimPrefix(filepath.Base(target), "runtime-") {
+	if isRuntime {
 		if !fileExists(filepath.Join(temp, "pwsh.exe")) {
 			return errors.New("portable PowerShell archive does not contain pwsh.exe at its root")
 		}
