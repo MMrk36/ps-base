@@ -85,7 +85,7 @@ The lockfile records the exact installed resource version, release tag, artifact
 
 A resource declares required and optional dependencies. Required dependencies are installed before the dependent resource. Missing, incompatible, circular or conflicting dependencies stop the plan before files are changed.
 
-The installer presents the complete installation plan and asks for confirmation before performing changes.
+The user selects one or more root resources. The resolver adds required dependencies automatically, marks them separately from selected resources, and orders dependencies before dependents. The installer presents the complete installation plan and asks for confirmation before performing changes.
 
 ## Updates, backups and rollback
 
@@ -120,7 +120,7 @@ The installer should be divided into small components with stable interfaces:
 - Validator: inspect server paths and installed resources.
 - CLI: expose commands without owning business logic.
 
-The Windows desktop UI is a presentation layer over the same CLI and PowerShell modules. Linux support, alternative release providers and third-party resource sources should be added as separate implementations rather than rewriting the installation engine.
+The Windows desktop UI is a presentation layer over the same CLI and PowerShell modules. A small Go bootstrapper checks published PS Base GitHub releases, downloads the versioned application package and official portable PowerShell runtime on demand, verifies SHA-256 checksums, and launches the GUI. The bootstrapper does not contain the runtime or installer modules. Linux support, alternative release providers and third-party resource sources should be added as separate implementations rather than rewriting the installation engine.
 
 ## Initial platform
 
