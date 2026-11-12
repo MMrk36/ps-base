@@ -101,7 +101,7 @@ try {
             $compatibility = Test-PSBaseCompatibility -Catalog $catalog -Plan $plan -ServerRoot $ServerPath -ArtifactVersion $ArtifactVersion
             foreach ($warning in $compatibility.Warnings) { Write-Warning $warning }
             Write-Host 'Resolved installation plan:' -ForegroundColor Cyan
-            $plan | Format-Table Id, Version, Name -AutoSize
+            $plan | Select-Object Id, Version, Name, @{Name = 'Selection'; Expression = { if ($_.Requested) { 'Selected' } else { 'Required dependency' } }} | Format-Table -AutoSize
             Write-Host 'No files have been downloaded or changed.' -ForegroundColor Yellow
         }
 
