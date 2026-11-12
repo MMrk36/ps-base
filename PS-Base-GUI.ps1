@@ -18,6 +18,7 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $script:cliPath = Join-Path $root 'PS-Base.ps1'
 $script:catalogPath = if ($CatalogPath) { [System.IO.Path]::GetFullPath($CatalogPath) } else { Join-Path $root 'catalog/resources.json' }
 Import-Module (Join-Path $root 'src/PSBase/Catalog.psm1') -Force
+Import-Module (Join-Path $root 'src/PSBase/DependencyResolver.psm1') -Force
 Import-Module (Join-Path $root 'src/PSBase/Auth.psm1') -Force
 $script:catalog = Get-PSBaseCatalog -Path $script:catalogPath
 $script:busy = $false
@@ -217,7 +218,7 @@ function Refresh-Catalog {
     $script:profileBox.SelectedIndex = 0
 
     $ready = @($script:catalog.resources | Where-Object { $_.installable }).Count
-    $script:notice.Text = "$ready of $($script:catalog.resources.Count) resources have published verified releases."
+    $script:notice.Text = "$ready of $($script:catalog.resources.Count) resources have published verified releases. Check only the resources you want; dependencies are included automatically."
     if ($ready -eq 0) {
         $script:notice.ForeColor = [System.Drawing.Color]::DarkGoldenrod
         Add-Log 'No installable release assets are in the catalog yet. Release publishing and catalog sync must run first.'
@@ -229,6 +230,31 @@ function Refresh-Catalog {
 
 function Get-SelectedIds {
     return @($script:resourceList.CheckedItems | ForEach-Object { [string]$_.Tag })
+}
+
+function Update-SelectionPreview {
+    $ids = @(Get-SelectedIds)
+    if ($ids.Count -eq 0) {
+        $script:notice.Text = 'Choose the resources you want to install. Required dependencies are added automatically.'
+        return
+    }
+
+    try {
+        $plan = @(Resolve-PSBaseInstallPlan -Catalog $script:catalog -ResourceIds $ids)
+        $dependencies = @($plan | Where-Object { -not $_.Requested } | ForEach-Object { "$($_.Id) $($_.Version)" })
+        $selected = @($plan | Where-Object { $_.Requested } | ForEach-Object { $_.Id })
+        $script:notice.ForeColor = [System.Drawing.Color]::FromArgb(45, 75, 115)
+        if ($dependencies.Count -gt 0) {
+            $script:notice.Text = "Selected: $($selected -join ', ') | Automatically included dependencies: $($dependencies -join ', ')"
+        }
+        else {
+            $script:notice.Text = "Selected resources: $($selected -join ', ') | No additional dependencies required."
+        }
+    }
+    catch {
+        $script:notice.ForeColor = [System.Drawing.Color]::DarkGoldenrod
+        $script:notice.Text = "Selection needs attention: $($_.Exception.Message)"
+    }
 }
 
 function Get-CommandArgs {
@@ -378,6 +404,7 @@ $script:profileBox.add_SelectedIndexChanged({
         $script:versionBox.Clear()
         foreach ($item in $script:resourceList.Items) { $item.Checked = $false }
     }
+    Update-SelectionPreview
 })
 
 $script:resourceList.add_ItemCheck({
@@ -390,6 +417,7 @@ $script:resourceList.add_ItemCheck({
     if ($eventArgs.NewValue -eq [System.Windows.Forms.CheckState]::Checked -and $script:profileBox.SelectedIndex -gt 0) {
         $script:profileBox.SelectedIndex = 0
     }
+    [void]$form.BeginInvoke([Action]{ Update-SelectionPreview })
 })
 
 $script:resourceList.add_SelectedIndexChanged({
