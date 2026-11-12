@@ -258,13 +258,32 @@ func extractZipAtomic(archivePath, target, root string, isRuntime bool) error {
 		return errors.New("PS Base application archive is incomplete")
 	}
 
-	if err := os.RemoveAll(target); err != nil {
-		return err
-	}
 	if err := os.MkdirAll(filepath.Dir(target), 0700); err != nil {
 		return err
 	}
-	return os.Rename(temp, target)
+	backup := target + ".previous"
+	if err := os.RemoveAll(backup); err != nil {
+		return err
+	}
+	hadTarget := false
+	if _, err := os.Stat(target); err == nil {
+		if err := os.Rename(target, backup); err != nil {
+			return fmt.Errorf("could not stage the previous installation: %w", err)
+		}
+		hadTarget = true
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	if err := os.Rename(temp, target); err != nil {
+		if hadTarget {
+			_ = os.Rename(backup, target)
+		}
+		return fmt.Errorf("could not activate the downloaded files: %w", err)
+	}
+	if hadTarget {
+		_ = os.RemoveAll(backup)
+	}
+	return nil
 }
 
 func within(root, path string) bool {
