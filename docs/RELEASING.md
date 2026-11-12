@@ -30,16 +30,16 @@ The PS Base repository has a separate **Build PS Base Windows EXE** workflow. It
 The workflow:
 
 1. Checks out the PS Base installer source without initializing resource submodules.
-2. Reads the pinned PowerShell version from `build/toolchain.json` and downloads the official Windows x64 portable ZIP.
-3. Verifies the downloaded PowerShell ZIP against the checksum published by the PowerShell project.
-4. Embeds the GUI, CLI, catalog, installer modules and portable PowerShell runtime into a self-extracting launcher.
-5. Publishes `PS-Base.exe` and its SHA-256 checksum as release assets.
+2. Packages the GUI, CLI, catalog and installer modules into a versioned application ZIP.
+3. Generates a bootstrap manifest containing the application ZIP checksum and pinned PowerShell version.
+4. Builds a small Go Windows x64 bootstrapper with no embedded PowerShell runtime or installer payload.
+5. Publishes `PS-Base.exe`, its checksum, the bootstrap manifest and the application ZIP as release assets.
 
-The EXE extracts its versioned payload to the current Windows user's Local AppData folder on first launch. It does not install PowerShell system-wide and does not require administrator access. Updating PS Base uses a new release EXE; the previous version's extracted files are kept separate so a running version is not overwritten.
+The EXE checks GitHub Releases on launch, including preview releases, and downloads the matching application package only when that version is not already installed. It downloads the pinned portable PowerShell runtime only when missing and verifies it against the official PowerShell checksum asset. Both packages are stored under the current Windows user's Local AppData folder. The EXE itself does not require PowerShell or .NET to be installed.
 
 Update `build/toolchain.json` deliberately when adopting a newer PowerShell runtime. Do not silently change the runtime used by an existing PS Base release.
 
-Before publishing a public desktop release, confirm that PS Base's own licensing and all bundled third-party notices permit redistribution. The bundled PowerShell and .NET runtimes retain their upstream licenses.
+Before publishing a public desktop release, confirm that PS Base's own licensing and all bundled third-party notices permit redistribution. The downloaded portable PowerShell runtime retains its upstream license and third-party notices.
 
 ## Catalog synchronization
 
