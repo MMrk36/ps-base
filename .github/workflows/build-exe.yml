@@ -73,6 +73,8 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path ./build -Force | Out-Null
+          gofmt -w ./cmd/psbase-bootstrap/main.go
+          go test ./...
           $env:CGO_ENABLED = '0'
           $env:GOOS = 'windows'
           $env:GOARCH = 'amd64'
