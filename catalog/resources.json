@@ -52,7 +52,7 @@
           "url": "https://api.github.com/repos/MMrk36/ps-database/releases/assets/735827722",
           "sha256": "00c8e320e6873e1f4e5a471931c2aad8bb5b65da4cd52d874f6053743e90a2de",
           "dependencies": [
-            "ps-core@0.1.0"
+            "ps-core"
           ],
           "psCoreApi": {
             "minVersion": "1.0.0"
@@ -82,6 +82,21 @@
       "installable": true,
       "releases": [
         {
+          "version": "0.1.1",
+          "tag": "v0.1.1",
+          "status": "preview",
+          "asset": "ps-characters-v0.1.1.zip",
+          "url": "https://api.github.com/repos/MMrk36/ps-characters/releases/assets/740024566",
+          "sha256": "400fbd8dd965b84fabfad0ea743a7c00421719ef983f0445c35eab1f25334324",
+          "dependencies": [
+            "ps-core",
+            "ps-database"
+          ],
+          "psCoreApi": {
+            "minVersion": "1.0.0"
+          }
+        },
+        {
           "version": "0.1.0",
           "tag": "v0.1.0",
           "status": "preview",
@@ -89,8 +104,8 @@
           "url": "https://api.github.com/repos/MMrk36/ps-characters/releases/assets/735830552",
           "sha256": "7e7d3edc1ab7542a6a974e88f7205e671cefc300a22902350bf0dfbc2735ca74",
           "dependencies": [
-            "ps-core@0.1.0",
-            "ps-database@0.1.0"
+            "ps-core",
+            "ps-database"
           ],
           "psCoreApi": {
             "minVersion": "1.0.0"
@@ -127,7 +142,7 @@
           "url": "https://api.github.com/repos/MMrk36/ps-inventory/releases/assets/735831613",
           "sha256": "7806242d0e8091d65a25cdfd94bb53850e357e41b9f1f83de35caf26ff0d73f0",
           "dependencies": [
-            "ps-core@0.1.0"
+            "ps-core"
           ],
           "psCoreApi": {
             "minVersion": "1.0.0"
@@ -160,7 +175,7 @@
           "url": "https://api.github.com/repos/MMrk36/ps-permissions/releases/assets/735829069",
           "sha256": "e53ca021cc3ab8d9a1f4bf27689fb47cd0884350b2e3a4fb7f26cb0cf28259d9",
           "dependencies": [
-            "ps-core@0.1.0"
+            "ps-core"
           ],
           "psCoreApi": {
             "minVersion": "1.0.0"
@@ -193,7 +208,7 @@
           "url": "https://api.github.com/repos/MMrk36/ps-notifications/releases/assets/735833032",
           "sha256": "7f5dbccba58cf8807772c3ae3599c3b6974bae4a56cb694b7dca0dabf97d6888",
           "dependencies": [
-            "ps-core@0.1.0"
+            "ps-core"
           ],
           "psCoreApi": {
             "minVersion": "1.0.0"
