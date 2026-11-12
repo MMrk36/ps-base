@@ -426,7 +426,6 @@ func fileExists(path string) bool {
 func fail(err error) {
 	fmt.Fprintln(os.Stderr, "PS Base startup error:", err)
 	fmt.Println("Press Enter to close.")
-	_, _ = bufio.NewReader(os.Stdin).ReadString('
-')
+	_, _ = bufio.NewReader(os.Stdin).ReadString(10)
 	os.Exit(1)
 }
