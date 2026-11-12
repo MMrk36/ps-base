@@ -90,10 +90,15 @@ func run() error {
 		return errors.New("Windows LOCALAPPDATA could not be located")
 	}
 	root := filepath.Join(localAppData, productFolder)
+	if err := os.MkdirAll(root, 0700); err != nil {
+		return fmt.Errorf("could not create the PS Base application directory: %w", err)
+	}
 	versionRoot := filepath.Join(root, manifest.Version)
 	runtimeRoot := filepath.Join(root, "runtime-"+manifest.PowerShellVersion)
 
-	if !fileExists(filepath.Join(versionRoot, "PS-Base-GUI.ps1")) {
+	if !fileExists(filepath.Join(versionRoot, "PS-Base-GUI.ps1")) ||
+		!fileExists(filepath.Join(versionRoot, "PS-Base.ps1")) ||
+		!fileExists(filepath.Join(versionRoot, "catalog", "resources.json")) {
 		fmt.Println("Downloading PS Base installer files...")
 		if err := installApplication(client, latest, manifest, versionRoot, root); err != nil {
 			return err
@@ -192,10 +197,18 @@ func extractZipAtomic(archivePath, target, root string, isRuntime bool) error {
 	}
 	defer reader.Close()
 
+	if len(reader.File) > 100000 {
+		return errors.New("archive contains too many entries")
+	}
+	var expandedBytes uint64
 	for _, entry := range reader.File {
+		expandedBytes += entry.UncompressedSize64
+		if expandedBytes > 4*1024*1024*1024 {
+			return errors.New("archive exceeds the maximum expanded size")
+		}
 		name := filepath.Clean(filepath.FromSlash(entry.Name))
-		if name == "." || filepath.IsAbs(name) || name == ".." ||
-			strings.HasPrefix(name, ".."+string(os.PathSeparator)) {
+		if name == "." || filepath.IsAbs(name) || name == ".." || strings.Contains(name, ":") ||
+			strings.Contains(entry.Name, "\\") || strings.HasPrefix(name, ".."+string(os.PathSeparator)) {
 			return errors.New("archive contains an unsafe file path")
 		}
 		destination := filepath.Join(temp, name)
