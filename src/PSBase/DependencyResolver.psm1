@@ -84,8 +84,10 @@ function Resolve-PSBaseInstallPlan {
         if ([string]::IsNullOrWhiteSpace($id)) {
             throw 'Resource IDs cannot be empty.'
         }
-
         [void]$requestedRoots.Add($id)
+    }
+
+    foreach ($id in $ResourceIds) {
         Add-ResourceToPlan -Id $id -RequestedVersion $Version
     }
 
