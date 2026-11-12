@@ -17,9 +17,21 @@ Add-Type -AssemblyName Microsoft.VisualBasic
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $script:cliPath = Join-Path $root 'PS-Base.ps1'
 $script:catalogPath = if ($CatalogPath) { [System.IO.Path]::GetFullPath($CatalogPath) } else { Join-Path $root 'catalog/resources.json' }
-Import-Module (Join-Path $root 'src/PSBase/Catalog.psm1') -Force
-Import-Module (Join-Path $root 'src/PSBase/DependencyResolver.psm1') -Force
-Import-Module (Join-Path $root 'src/PSBase/Auth.psm1') -Force
+$moduleDirectory = Join-Path $root 'src/PSBase'
+$requiredModules = @('Catalog.psm1', 'DependencyResolver.psm1', 'Auth.psm1')
+foreach ($moduleFile in $requiredModules) {
+    $modulePath = Join-Path $moduleDirectory $moduleFile
+    if (-not (Test-Path -LiteralPath $modulePath -PathType Leaf)) {
+        throw "Required PS Base module is missing: $modulePath"
+    }
+
+    Import-Module -Name $modulePath -Global -Force -ErrorAction Stop
+}
+
+if (-not (Get-Command -Name Get-PSBaseCatalog -ErrorAction SilentlyContinue)) {
+    throw "Catalog module loaded, but Get-PSBaseCatalog was not exported. Check '$moduleDirectory/Catalog.psm1'."
+}
+
 $script:catalog = Get-PSBaseCatalog -Path $script:catalogPath
 $script:busy = $false
 
