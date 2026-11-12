@@ -31,3 +31,15 @@ Extraction is only allowed into a new or empty staging directory. The installer 
 ## Current scope
 
 The artifact module currently supports HTTPS download, SHA-256 verification and safe extraction into staging. It does not yet install files into a server, preserve existing configuration, create backups or modify server configuration.
+
+
+## PS Base desktop release
+
+A PS Base desktop release publishes four assets:
+
+- `PS-Base.exe`: a small Windows x64 bootstrapper.
+- `PS-Base.exe.sha256`: checksum for the bootstrapper.
+- `psbase-bootstrap.json`: versioned manifest naming the application archive, its SHA-256 checksum and the pinned portable PowerShell version.
+- `psbase-app-v<version>.zip`: the PowerShell GUI, CLI, catalog and installer modules.
+
+The bootstrapper checks published PS Base releases, including preview releases, verifies the application archive against the manifest, downloads the pinned portable PowerShell release and verifies it against the official `hashes.sha256` asset. It rejects unsafe ZIP paths and symbolic links before extraction. Application and runtime files are stored separately under the current user's Local AppData directory. The bootstrapper itself contains neither archive, keeping the downloadable EXE small.
