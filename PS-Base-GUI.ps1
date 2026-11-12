@@ -240,7 +240,13 @@ function Update-SelectionPreview {
     }
 
     try {
-        $plan = @(Resolve-PSBaseInstallPlan -Catalog $script:catalog -ResourceIds $ids)
+        $version = $script:versionBox.Text.Trim()
+        $plan = if ($version) {
+            @(Resolve-PSBaseInstallPlan -Catalog $script:catalog -ResourceIds $ids -Version $version)
+        }
+        else {
+            @(Resolve-PSBaseInstallPlan -Catalog $script:catalog -ResourceIds $ids)
+        }
         $dependencies = @($plan | Where-Object { -not $_.Requested } | ForEach-Object { "$($_.Id) $($_.Version)" })
         $selected = @($plan | Where-Object { $_.Requested } | ForEach-Object { $_.Id })
         $script:notice.ForeColor = [System.Drawing.Color]::FromArgb(45, 75, 115)
@@ -406,6 +412,7 @@ $script:profileBox.add_SelectedIndexChanged({
     }
     Update-SelectionPreview
 })
+$script:versionBox.add_TextChanged({ Update-SelectionPreview })
 
 $script:resourceList.add_ItemCheck({
     param($sender, $eventArgs)
