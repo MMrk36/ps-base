@@ -30,6 +30,7 @@ type release struct {
 	Assets  []struct {
 		Name               string `json:"name"`
 		BrowserDownloadURL string `json:"browser_download_url"`
+		Digest             string `json:"digest"`
 	} `json:"assets"`
 }
 
@@ -155,20 +156,28 @@ func installPowerShell(client *http.Client, version, target, root string) error 
 		return fmt.Errorf("could not find portable PowerShell %s: %w", version, err)
 	}
 	zipName := "PowerShell-" + version + "-win-x64.zip"
-	zipURL := assetURL(rel, zipName)
-	hashURL := assetURL(rel, "hashes.sha256")
-	if zipURL == "" || hashURL == "" {
-		return errors.New("the official PowerShell release is missing its archive or checksum file")
+	zipAsset := findAsset(rel, zipName)
+	if zipAsset == nil || zipAsset.BrowserDownloadURL == "" {
+		return errors.New("the official PowerShell release is missing its Windows x64 archive")
 	}
+	zipURL := zipAsset.BrowserDownloadURL
 
-	hashFilePath := filepath.Join(root, "powershell-hashes-"+version+".txt")
-	if err := downloadFile(client, hashURL, hashFilePath); err != nil {
-		return fmt.Errorf("could not download the official PowerShell checksums: %w", err)
-	}
-	defer os.Remove(hashFilePath)
-	expected, err := expectedHash(hashFilePath, zipName)
-	if err != nil {
-		return err
+	expected := strings.TrimPrefix(strings.TrimSpace(zipAsset.Digest), "sha256:")
+	if !validSHA256(expected) {
+		hashURL := assetURL(rel, "hashes.sha256")
+		if hashURL == "" {
+			return errors.New("the official PowerShell release is missing a usable archive digest and checksum file")
+		}
+		hashFilePath := filepath.Join(root, "powershell-hashes-"+version+".txt")
+		if err := downloadFile(client, hashURL, hashFilePath); err != nil {
+			return fmt.Errorf("could not download the official PowerShell checksums: %w", err)
+		}
+		defer os.Remove(hashFilePath)
+		var err error
+		expected, err = expectedHash(hashFilePath, zipName)
+		if err != nil {
+			return err
+		}
 	}
 
 	archivePath := filepath.Join(root, zipName+".download")
@@ -383,6 +392,19 @@ func downloadFile(client *http.Client, url, path string) error {
 		return copyErr
 	}
 	return closeErr
+}
+
+func findAsset(rel release, name string) *struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
+	Digest             string `json:"digest"`
+} {
+	for i := range rel.Assets {
+		if rel.Assets[i].Name == name {
+			return &rel.Assets[i]
+		}
+	}
+	return nil
 }
 
 func assetURL(rel release, name string) string {
