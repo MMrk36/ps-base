@@ -32,6 +32,9 @@ jobs:
           if ("${{ github.ref_type }}" -eq "tag") {
             $version = "${{ github.ref_name }}".TrimStart('v')
           }
+          elseif ("${{ github.event.head_commit.message }}" -like '*[refresh-release]*') {
+            $version = "0.1.0"
+          }
           else {
             $version = "0.0.0-dev.${{ github.run_number }}"
           }
@@ -107,12 +110,14 @@ jobs:
             build/PS-Base.exe.sha256
 
       - name: Publish GitHub release assets
-        if: github.ref_type == 'tag'
+        if: github.ref_type == 'tag' || contains(github.event.head_commit.message, '[refresh-release]')
         uses: softprops/action-gh-release@v2
         with:
-          name: PS Base ${{ github.ref_name }}
-          generate_release_notes: true
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v0.1.0' }}
+          name: PS Base v0.1.0
+          generate_release_notes: false
+          prerelease: false
+          overwrite_files: true
           files: |
             build/PS-Base.exe
             build/PS-Base.exe.sha256
