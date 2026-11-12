@@ -80,8 +80,8 @@ func run() error {
 	if err := downloadJSON(client, manifestURL, &manifest); err != nil {
 		return fmt.Errorf("could not read the PS Base release manifest: %w", err)
 	}
-	if manifest.Version != strings.TrimPrefix(latest.TagName, "v") || strings.ContainsAny(manifest.Version, `/\\:`) ||
-		manifest.PowerShellVersion == "" || strings.ContainsAny(manifest.PowerShellVersion, `/\\:`) ||
+	if !validVersion(manifest.Version) || manifest.Version != strings.TrimPrefix(latest.TagName, "v") ||
+		!validVersion(manifest.PowerShellVersion) ||
 		filepath.Base(manifest.AppAsset) != manifest.AppAsset || !strings.HasSuffix(strings.ToLower(manifest.AppAsset), ".zip") ||
 		!validSHA256(manifest.AppSHA256) {
 		return errors.New("the PS Base release manifest is incomplete, inconsistent or invalid")
@@ -378,6 +378,36 @@ func hashFile(path string) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+func validVersion(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, character := range value {
+		if !(character >= '0' && character <= '9') &&
+			!(character >= 'A' && character <= 'Z') &&
+			!(character >= 'a' && character <= 'z') &&
+			character != '.' && character != '-' && character != '+' {
+			return false
+		}
+	}
+	base := strings.SplitN(strings.SplitN(value, "-", 2)[0], "+", 2)[0]
+	parts := strings.Split(base, ".")
+	if len(parts) != 3 {
+		return false
+	}
+	for _, part := range parts {
+		if part == "" {
+			return false
+		}
+		for _, character := range part {
+			if character < '0' || character > '9' {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func validSHA256(value string) bool {
