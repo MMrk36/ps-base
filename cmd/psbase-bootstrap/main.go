@@ -104,8 +104,7 @@ func run() error {
 
 	pwsh := filepath.Join(runtimeRoot, "pwsh.exe")
 	if !fileExists(pwsh) {
-		fmt.Printf("Downloading portable PowerShell %s...
-", manifest.PowerShellVersion)
+		fmt.Printf("Downloading portable PowerShell %s...\n", manifest.PowerShellVersion)
 		if err := installPowerShell(client, manifest.PowerShellVersion, runtimeRoot, root); err != nil {
 			return err
 		}
