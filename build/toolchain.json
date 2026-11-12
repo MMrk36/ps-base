@@ -1,5 +1,3 @@
 {
-  "powershell": "7.7.0",
-  "dotnetSdk": "10.0.x",
-  "runtime": "win-x64"
+  "powershell": "7.7.0"
 }

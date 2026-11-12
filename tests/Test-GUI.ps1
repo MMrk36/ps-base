@@ -21,27 +21,30 @@ if (-not (Test-Path -LiteralPath (Join-Path $root 'Start-PSBase.cmd') -PathType 
     throw 'The Windows development launcher is missing.'
 }
 
-$launcherProject = Join-Path $root 'src/PSBase.Launcher/PSBase.Launcher.csproj'
-$launcherSource = Join-Path $root 'src/PSBase.Launcher/Program.cs'
-if (-not (Test-Path -LiteralPath $launcherProject -PathType Leaf) -or
-    -not (Test-Path -LiteralPath $launcherSource -PathType Leaf)) {
-    throw 'The single-file Windows EXE launcher project is incomplete.'
+$bootstrapSource = Join-Path $root 'cmd/psbase-bootstrap/main.go'
+if (-not (Test-Path -LiteralPath $bootstrapSource -PathType Leaf)) {
+    throw 'The lightweight GitHub bootstrapper source is missing.'
 }
 
-[xml]$project = Get-Content -LiteralPath $launcherProject -Raw
-if ($project.Project.PropertyGroup.TargetFramework -ne 'net10.0-windows' -or
-    $project.Project.PropertyGroup.PublishSingleFile -ne 'true' -or
-    $project.Project.PropertyGroup.SelfContained -ne 'true') {
-    throw 'The launcher must publish as a self-contained single-file Windows application.'
-}
-
-$sourceText = Get-Content -LiteralPath $launcherSource -Raw
-foreach ($requiredText in @('PSBase.Launcher.payload.zip', 'EnsurePayloadExtracted', 'runtime/pwsh.exe', '--self-test')) {
+$sourceText = Get-Content -LiteralPath $bootstrapSource -Raw
+foreach ($requiredText in @('releases?per_page=20', 'psbase-bootstrap.json', 'appSha256', 'hashes.sha256', 'extractZipAtomic', '--self-test')) {
     if (-not $sourceText.Contains($requiredText)) {
-        throw "The EXE launcher is missing required behavior: $requiredText"
+        throw "The bootstrapper is missing required behavior: $requiredText"
+    }
+}
+
+if (-not (Test-Path -LiteralPath (Join-Path $root 'go.mod') -PathType Leaf)) {
+    throw 'The Go module definition is missing.'
+}
+
+$guiText = Get-Content -LiteralPath (Join-Path $root 'PS-Base-GUI.ps1') -Raw
+foreach ($requiredText in @('Check only the resources you want', 'Automatically included dependencies', 'Get-SelectedIds')) {
+    if (-not $guiText.Contains($requiredText)) {
+        throw "The resource selection interface is missing required behavior: $requiredText"
     }
 }
 
 Write-Host '[PASS] Desktop interface PowerShell syntax is valid.'
-Write-Host '[PASS] Windows development launcher exists.'
-Write-Host '[PASS] Single-file EXE launcher project is configured.'
+Write-Host '[PASS] Lightweight GitHub bootstrapper source and module are present.'
+Write-Host '[PASS] Bootstrapper verifies downloaded application and PowerShell archives.'
+Write-Host '[PASS] GUI supports explicit resource selection and automatic dependencies.'

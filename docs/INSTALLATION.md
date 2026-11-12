@@ -6,12 +6,12 @@
 
 1. Download `PS-Base.exe` from the official PS Base GitHub release.
 2. Run the EXE. No separate PowerShell installation is required.
-3. On first launch, PS Base extracts its bundled application and portable PowerShell runtime into the current Windows user's Local AppData directory. Later launches reuse that copy.
+3. On first launch, the small bootstrapper checks GitHub, downloads the latest installer payload and portable PowerShell runtime, verifies both downloads, and stores them under the current Windows user's Local AppData directory. Later launches reuse the installed copy and download only when a new release or runtime version is required.
 4. Select the RedM server root containing `server.cfg` and `resources`.
 5. Add a GitHub fine-grained token with read-only Contents access to the private PS Base and resource repositories. Save it in the interface; Windows DPAPI protects it for the current user.
-6. Select one or more resources, review the dependency plan, then install.
+6. Check only the resources you want to install. PS Base automatically adds required dependencies, shows them separately in the plan, and installs dependencies before the resources that need them.
 
-The EXE is a Windows x64 desktop application. Its embedded payload is versioned, and each release extracts to its own application directory so an update does not overwrite files used by an already running version. The saved GitHub token remains in the shared current-user credential location and is not bundled into the EXE.
+The EXE is a lightweight Windows x64 bootstrapper. It contains no PowerShell runtime or installer payload. Each application release is stored in its own versioned directory so an update does not overwrite files used by an already running version. The saved GitHub token remains in the shared current-user credential location and is not bundled into the EXE.
 
 ### Development workspace
 

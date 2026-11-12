@@ -20,21 +20,13 @@ jobs:
         with:
           submodules: false
 
-      - name: Read pinned toolchain
-        id: toolchain
-        shell: pwsh
-        run: |
-          $toolchain = Get-Content ./build/toolchain.json -Raw | ConvertFrom-Json
-          "powershell=$($toolchain.powershell)" >> $env:GITHUB_OUTPUT
-          "dotnet=$($toolchain.dotnetSdk)" >> $env:GITHUB_OUTPUT
-          "runtime=$($toolchain.runtime)" >> $env:GITHUB_OUTPUT
-
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          dotnet-version: ${{ steps.toolchain.outputs.dotnet }}
+          go-version: '1.24.x'
+          cache: false
 
-      - name: Resolve release version
+      - name: Resolve release metadata
         shell: pwsh
         run: |
           if ("${{ github.ref_type }}" -eq "tag") {
@@ -48,54 +40,11 @@ jobs:
             throw "Invalid PS Base release version: $version"
           }
 
+          $toolchain = Get-Content ./build/toolchain.json -Raw | ConvertFrom-Json
           "APP_VERSION=$version" >> $env:GITHUB_ENV
+          "POWERSHELL_VERSION=$($toolchain.powershell)" >> $env:GITHUB_ENV
 
-      - name: Download and verify portable PowerShell
-        shell: pwsh
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          $version = "${{ steps.toolchain.outputs.powershell }}"
-          $apiHeaders = @{
-            Authorization = "Bearer $env:GITHUB_TOKEN"
-            Accept = 'application/vnd.github+json'
-            'X-GitHub-Api-Version' = '2022-11-28'
-            'User-Agent' = 'PedroScripts-PSBase-Release'
-          }
-          $downloadHeaders = @{ 'User-Agent' = 'PedroScripts-PSBase-Release' }
-          $release = Invoke-RestMethod -Uri "https://api.github.com/repos/PowerShell/PowerShell/releases/tags/v$version" -Headers $apiHeaders
-          if ($release.prerelease -or $release.draft) {
-            throw "Pinned PowerShell version v$version is not a stable published release."
-          }
-
-          $asset = $release.assets | Where-Object { $_.name -eq "PowerShell-$version-win-x64.zip" } | Select-Object -First 1
-          $hashAsset = $release.assets | Where-Object { $_.name -eq 'hashes.sha256' } | Select-Object -First 1
-          if (-not $asset -or -not $hashAsset) {
-            throw "PowerShell v$version is missing its Windows x64 ZIP or checksum file."
-          }
-
-          New-Item -ItemType Directory -Path ./build/runtime -Force | Out-Null
-          Invoke-WebRequest -Uri $asset.browser_download_url -Headers $downloadHeaders -OutFile ./build/powershell.zip
-          Invoke-WebRequest -Uri $hashAsset.browser_download_url -Headers $downloadHeaders -OutFile ./build/powershell-hashes.sha256
-
-          $hashLine = Get-Content ./build/powershell-hashes.sha256 | Where-Object { $_ -match [regex]::Escape($asset.name) } | Select-Object -First 1
-          if (-not $hashLine) {
-            throw "No published SHA-256 checksum was found for $($asset.name)."
-          }
-          $expectedHash = ($hashLine.Trim() -split '\s+')[0]
-          $actualHash = (Get-FileHash ./build/powershell.zip -Algorithm SHA256).Hash
-          if ($actualHash -ne $expectedHash) {
-            throw 'The downloaded PowerShell runtime checksum does not match the official release checksum.'
-          }
-
-          Expand-Archive -LiteralPath ./build/powershell.zip -DestinationPath ./build/runtime -Force
-          if (-not (Test-Path ./build/runtime/pwsh.exe)) {
-            throw 'The downloaded PowerShell archive did not contain pwsh.exe at its root.'
-          }
-
-          "POWERSHELL_VERSION=v$version" >> $env:GITHUB_ENV
-
-      - name: Prepare embedded application payload
+      - name: Package installer application
         shell: pwsh
         run: |
           $payload = Join-Path $PWD 'build/payload'
@@ -103,45 +52,44 @@ jobs:
 
           Copy-Item ./PS-Base.ps1 $payload
           Copy-Item ./PS-Base-GUI.ps1 $payload
-          Copy-Item ./catalog $payload -Recurse
+          Copy-Item ./README.md $payload
+          Copy-Item ./docs (Join-Path $payload 'docs') -Recurse
+          Copy-Item ./catalog (Join-Path $payload 'catalog') -Recurse
           Copy-Item ./src/PSBase (Join-Path $payload 'src/PSBase') -Recurse
-          Copy-Item ./build/runtime (Join-Path $payload 'runtime') -Recurse
 
-          $notices = Join-Path $payload 'THIRD-PARTY-NOTICES.txt'
-          @(
-            'PS Base bundles the portable PowerShell runtime published by Microsoft.'
-            "PowerShell release: $env:POWERSHELL_VERSION"
-            'PowerShell license and third-party notices are included from the official runtime archive when present.'
-            '.NET is included as a self-contained application runtime. License: https://github.com/dotnet/runtime/blob/main/LICENSE.TXT'
-            'PS Base source and resource licensing remains subject to the notices and terms in their respective repositories.'
-            ''
-          ) | Set-Content -LiteralPath $notices -Encoding utf8
+          $appAsset = "psbase-app-v$env:APP_VERSION.zip"
+          Compress-Archive -Path (Join-Path $payload '*') -DestinationPath (Join-Path $PWD "build/$appAsset") -CompressionLevel Optimal
+          $appHash = (Get-FileHash (Join-Path $PWD "build/$appAsset") -Algorithm SHA256).Hash.ToLowerInvariant()
 
-          Get-ChildItem ./build/runtime -File -Recurse | Where-Object {
-            $_.Name -match '^(LICENSE|ThirdPartyNotices)(\..*)?$'
-          } | ForEach-Object {
-            Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $payload $_.Name) -Force
+          $manifest = [ordered]@{
+            version = $env:APP_VERSION
+            powershellVersion = $env:POWERSHELL_VERSION
+            appAsset = $appAsset
+            appSha256 = $appHash
           }
+          $manifest | ConvertTo-Json | Set-Content ./build/psbase-bootstrap.json -Encoding utf8
 
-          Compress-Archive -Path (Join-Path $payload '*') -DestinationPath ./build/psbase-payload.zip -CompressionLevel Optimal
-
-      - name: Publish single-file launcher
+      - name: Build lightweight bootstrapper
         shell: pwsh
         run: |
-          dotnet publish ./src/PSBase.Launcher/PSBase.Launcher.csproj --configuration Release --runtime ${{ steps.toolchain.outputs.runtime }} --self-contained true --output ./build/publish "-p:Version=$env:APP_VERSION" "-p:InformationalVersion=$env:APP_VERSION" "-p:PayloadPath=$PWD/build/psbase-payload.zip"
+          New-Item -ItemType Directory -Path ./build -Force | Out-Null
+          gofmt -w ./cmd/psbase-bootstrap/main.go
+          go test ./...
+          $env:CGO_ENABLED = '0'
+          $env:GOOS = 'windows'
+          $env:GOARCH = 'amd64'
+          go build -trimpath -ldflags="-s -w" -o ./build/PS-Base.exe ./cmd/psbase-bootstrap
 
-          $exe = Join-Path $PWD 'build/publish/PSBase.Launcher.exe'
-          if (-not (Test-Path -LiteralPath $exe)) {
-            throw 'The single-file launcher was not produced.'
+          if (-not (Test-Path ./build/PS-Base.exe)) {
+            throw 'The PS Base bootstrapper was not produced.'
           }
-          Copy-Item -LiteralPath $exe -Destination ./build/PS-Base.exe
 
-      - name: Smoke test the packaged EXE
+      - name: Smoke test bootstrapper
         shell: pwsh
         run: |
           $process = Start-Process -FilePath ./build/PS-Base.exe -ArgumentList '--self-test' -Wait -PassThru
           if ($process.ExitCode -ne 0) {
-            throw "PS Base EXE smoke test failed with exit code $($process.ExitCode)."
+            throw "PS Base bootstrapper smoke test failed with exit code $($process.ExitCode)."
           }
 
       - name: Generate SHA-256 checksum
@@ -158,7 +106,7 @@ jobs:
             build/PS-Base.exe
             build/PS-Base.exe.sha256
 
-      - name: Publish GitHub release asset
+      - name: Publish GitHub release assets
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v2
         with:
@@ -168,3 +116,5 @@ jobs:
           files: |
             build/PS-Base.exe
             build/PS-Base.exe.sha256
+            build/psbase-bootstrap.json
+            build/psbase-app-v${{ env.APP_VERSION }}.zip

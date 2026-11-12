@@ -6,12 +6,12 @@ It is designed to install and manage independently maintained RedM resources. Ea
 
 ## Current status
 
-PS Base is a Windows desktop installer with a PowerShell 7 GUI and CLI engine. The distribution target is a single Windows x64 EXE that embeds the portable PowerShell runtime and extracts its versioned application payload on first launch. The EXE does not require a separate PowerShell installation.
+PS Base is a Windows desktop installer with a PowerShell 7 GUI and CLI engine. Its small Windows x64 EXE is a GitHub bootstrapper: it checks for the latest published PS Base release, downloads the verified installer payload and portable PowerShell runtime when needed, then launches the GUI. The EXE does not embed the runtime or installer modules.
 
 - Development workspace: Git submodules pinned by the PS Base repository.
-- Distribution: a single-file Windows x64 launcher with embedded runtime and application payload.
+- Distribution: a lightweight single-file Windows x64 bootstrapper; application files and portable PowerShell are downloaded from GitHub on first launch and reused.
 - Installation target: a user-selected RedM server `resources` directory.
-- Runtime: bundled portable PowerShell 7; the developer workspace still uses the locally installed PowerShell.
+- Runtime: portable PowerShell 7 downloaded from its official GitHub release and verified against Microsoft's published SHA-256 checksum.
 
 Resources are not installable through PS Base until an official release artifact and checksum have been published and added to the catalog.
 
@@ -25,7 +25,7 @@ ps-base/
 ├── docs/               Architecture and development documentation
 ├── scripts/            Development and validation scripts
 ├── src/PSBase/         PowerShell installer modules
-├── src/PSBase.Launcher/ Single-file Windows EXE launcher
+├── cmd/psbase-bootstrap/ Lightweight Go GitHub downloader
 ├── tests/              PowerShell tests
 ├── ps-core/            Git submodule
 ├── ps-characters/      Git submodule
@@ -55,7 +55,7 @@ pwsh -File ./scripts/Test-Repository.ps1
 
 ## Start the desktop installer
 
-For end users, download and run `PS-Base.exe` from a PS Base GitHub release. The first launch extracts the embedded files and portable PowerShell runtime into the current user's Local AppData folder. No PowerShell installation or separate ZIP is needed.
+For end users, download and run `PS-Base.exe` from a PS Base GitHub release. The bootstrapper downloads the latest installer payload and portable PowerShell runtime into the current user's Local AppData folder, verifies their SHA-256 checksums, and launches the GUI. No separate PowerShell installation is needed.
 
 For contributors running from a source checkout, install PowerShell 7+ and run `Start-PSBase.cmd`. The interface selects a RedM server folder, browses resources and profiles, reviews dependency plans, installs and updates resources, and manages status, backups, restore, uninstall and interrupted transaction recovery.
 
@@ -84,8 +84,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design principles, [doc
 - Preserve untracked files, local deletions and catalog-marked preserve-policy files.
 - Back up updates and retain resource, manifest and lockfile metadata for restore.
 - Journal multi-resource update operations and provide interrupted-transaction recovery.
-- The EXE extracts only its embedded, versioned application payload under the current user's Local AppData directory.
+- The EXE downloads only published GitHub release assets, verifies their checksums, and extracts them under the current user's Local AppData directory.
 
 ## License
 
-Licensing and redistribution terms must be documented before public installer releases. Each resource retains its own license and third-party attribution requirements. The bundled PowerShell and .NET runtimes retain their upstream licenses and notices.
+Licensing and redistribution terms must be documented before public installer releases. Each resource retains its own license and third-party attribution requirements. The downloaded PowerShell runtime retains its upstream license and notices.
