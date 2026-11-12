@@ -36,7 +36,7 @@ func TestExpectedHashSupportsChecksumFormats(t *testing.T) {
 	}
 }
 
-// Keep a regression test for checksum rows that do not match the requested archive.
+// Regression test: reject checksum rows that do not match the requested archive.
 func TestExpectedHashRejectsMissingEntry(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "hashes.sha256")
 	if err := os.WriteFile(path, []byte("0123456789abcdef\n"), 0600); err != nil {
