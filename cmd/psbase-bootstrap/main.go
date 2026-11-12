@@ -162,8 +162,8 @@ func installPowerShell(client *http.Client, version, target, root string) error 
 	}
 	zipURL := zipAsset.BrowserDownloadURL
 
-	expected := strings.TrimPrefix(strings.TrimSpace(zipAsset.Digest), "sha256:")
-	if !validSHA256(expected) {
+	expected := officialAssetHash(zipAsset.Digest)
+	if expected == "" {
 		hashURL := assetURL(rel, "hashes.sha256")
 		if hashURL == "" {
 			return errors.New("the official PowerShell release is missing a usable archive digest and checksum file")
@@ -300,6 +300,14 @@ func within(root, path string) bool {
 	return err == nil && relative != ".." &&
 		!strings.HasPrefix(relative, ".."+string(os.PathSeparator)) &&
 		!filepath.IsAbs(relative)
+}
+
+func officialAssetHash(digest string) string {
+	hash := strings.TrimPrefix(strings.TrimSpace(digest), "sha256:")
+	if !validSHA256(hash) {
+		return ""
+	}
+	return strings.ToLower(hash)
 }
 
 func expectedHash(path, name string) (string, error) {
