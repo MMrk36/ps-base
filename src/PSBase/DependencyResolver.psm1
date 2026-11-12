@@ -12,6 +12,7 @@ function Resolve-PSBaseInstallPlan {
 
     $ordered = [System.Collections.Generic.List[object]]::new()
     $selectedVersions = @{}
+    $requestedRoots = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $visiting = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $visited = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 
@@ -75,6 +76,7 @@ function Resolve-PSBaseInstallPlan {
             ApiVersion = if ($null -ne $release.PSObject.Properties['apiVersion']) { $release.apiVersion } else { $null }
             PsCoreApi = if ($null -ne $release.PSObject.Properties['psCoreApi']) { $release.psCoreApi } else { $null }
             MinimumArtifact = if ($null -ne $release.PSObject.Properties['minimumArtifact']) { $release.minimumArtifact } else { $null }
+            Requested = $requestedRoots.Contains($key)
         })
     }
 
@@ -83,6 +85,7 @@ function Resolve-PSBaseInstallPlan {
             throw 'Resource IDs cannot be empty.'
         }
 
+        [void]$requestedRoots.Add($id)
         Add-ResourceToPlan -Id $id -RequestedVersion $Version
     }
 
