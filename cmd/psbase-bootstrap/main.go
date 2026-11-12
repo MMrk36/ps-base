@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -80,9 +81,94 @@ func run() error {
 	if err := downloadJSON(client, manifestURL, &manifest); err != nil {
 		return fmt.Errorf("could not read the PS Base release manifest: %w", err)
 	}
-	if manifest.Version == "" || manifest.PowerShellVersion == "" ||
-		manifest.AppAsset == "" || !validSHA256(manifest.AppSHA256) {
-		return errors.New("the PS Base release manifest is incomplete or invalid")
+	versionPattern := regexp.MustCompile(`^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?package main
+
+import (
+	"archive/zip"
+	"bufio"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"runtime"
+	"strings"
+	"time"
+)
+
+const (
+	repository      = "MMrk36/ps-base"
+	powershellRepo  = "PowerShell/PowerShell"
+	productFolder   = "PedroScripts/PSBase"
+	userAgent       = "PedroScripts-PSBase-Bootstrap"
+)
+
+type release struct {
+	TagName string `json:"tag_name"`
+	Assets  []struct {
+		Name               string `json:"name"`
+		BrowserDownloadURL string `json:"browser_download_url"`
+	} `json:"assets"`
+}
+
+type bootstrapManifest struct {
+	Version           string `json:"version"`
+	PowerShellVersion string `json:"powershellVersion"`
+	AppAsset           string `json:"appAsset"`
+	AppSHA256          string `json:"appSha256"`
+}
+
+func main() {
+	if len(os.Args) == 2 && os.Args[1] == "--self-test" {
+		fmt.Println("PS Base bootstrapper self-test passed.")
+		return
+	}
+	if runtime.GOOS != "windows" || runtime.GOARCH != "amd64" {
+		fail(errors.New("PS Base currently supports Windows x64 only."))
+	}
+	if err := run(); err != nil {
+		fail(err)
+	}
+}
+
+func run() error {
+	fmt.Println("Pedro Scripts | PS Base")
+	fmt.Println("Checking GitHub for the latest installer...")
+	client := &http.Client{Timeout: 15 * time.Minute}
+	releases, err := getJSON[[]release](client, "https://api.github.com/repos/"+repository+"/releases?per_page=20")
+	if err != nil {
+		return fmt.Errorf("could not check PS Base releases: %w", err)
+	}
+	var latest release
+	for _, candidate := range releases {
+		if candidate.TagName != "" && len(candidate.Assets) > 0 {
+			latest = candidate
+			break
+		}
+	}
+	if latest.TagName == "" {
+		return errors.New("no published PS Base release is available yet")
+	}
+
+	manifestURL := assetURL(latest, "psbase-bootstrap.json")
+	if manifestURL == "" {
+		return errors.New("the latest PS Base release is missing its bootstrap manifest")
+	}
+	var manifest bootstrapManifest
+	if err := downloadJSON(client, manifestURL, &manifest); err != nil {
+		return fmt.Errorf("could not read the PS Base release manifest: %w", err)
+	}
+	)
+	if !versionPattern.MatchString(manifest.Version) || manifest.Version != strings.TrimPrefix(latest.TagName, "v") ||
+		!versionPattern.MatchString(manifest.PowerShellVersion) || filepath.Base(manifest.AppAsset) != manifest.AppAsset ||
+		!strings.HasSuffix(strings.ToLower(manifest.AppAsset), ".zip") || !validSHA256(manifest.AppSHA256) {
+		return errors.New("the PS Base release manifest is incomplete, inconsistent or invalid")
 	}
 
 	localAppData := os.Getenv("LOCALAPPDATA")
