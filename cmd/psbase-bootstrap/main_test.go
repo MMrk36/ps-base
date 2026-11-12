@@ -50,7 +50,7 @@ func TestExpectedHashRejectsMissingEntry(t *testing.T) {
 func TestOfficialAssetHash(t *testing.T) {
 	const hash = "7c74e03b20a75b59715847439d046a6214b1863ee79b187872980f139bb4a05f"
 
-	if actual := officialAssetHash("sha256:" + hash); actual != hash {
+	if actual := officialAssetHash(" sha256:" + hash + " "); actual != hash {
 		t.Fatalf("expected %s, got %s", hash, actual)
 	}
 	if actual := officialAssetHash("sha512:" + hash); actual != "" {
