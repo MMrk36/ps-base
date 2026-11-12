@@ -32,7 +32,7 @@ jobs:
           if ("${{ github.ref_type }}" -eq "tag") {
             $version = "${{ github.ref_name }}".TrimStart('v')
           }
-          elseif ("${{ github.event.head_commit.message }}" -like '*[refresh-release]*') {
+          elseif ("${{ github.event.head_commit.message }}".Contains('[refresh-release]')) {
             $version = "0.1.0"
           }
           else {
